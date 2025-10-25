@@ -1,4 +1,4 @@
--- WoW API calls
+-- WoW API calls (Classic Era 1.15 compatible)
 local _CreateFrame = CreateFrame
 local _GetTime = GetTime
 local _GetNumTradeSkills = GetNumTradeSkills
@@ -14,9 +14,13 @@ local _GetCraftName = GetCraftName
 local _GetCraftReagentInfo = GetCraftReagentInfo
 local _GetCraftReagentItemLink = GetCraftReagentItemLink
 local _GetCraftCooldown = GetCraftCooldown
-local _C_Container = C_Container
 local _UnitCastingInfo = UnitCastingInfo
 local _UnitChannelInfo = UnitChannelInfo
+
+-- Classic Era uses different container API
+local _GetContainerNumSlots = GetContainerNumSlots
+local _GetContainerItemInfo = GetContainerItemInfo
+local _GetContainerItemLink = GetContainerItemLink
 
 print("=== PROFESSION EVENT INVESTIGATION LOADED ===")
 print("This module will log ALL profession-related events")
@@ -26,7 +30,7 @@ print("==============================================")
 -- Event tracking frame
 local investigationFrame = _CreateFrame("Frame")
 
--- All possible profession-related events for Classic Era
+-- All possible profession-related events for Classic Era (1.15)
 local PROFESSION_EVENTS = {
 	-- Trade skill events (Alchemy, Blacksmithing, Cooking, Engineering, First Aid, Fishing, Leatherworking, Mining, Skinning, Tailoring)
 	"TRADE_SKILL_SHOW",
@@ -39,10 +43,18 @@ local PROFESSION_EVENTS = {
 	"CRAFT_CLOSE",
 	"CRAFT_UPDATE",
 
-	-- Enchanting-specific events
+	-- Enchanting-specific events (Classic Era confirmed)
 	"BIND_ENCHANT",
 	"REPLACE_ENCHANT",
 	"TRADE_REPLACE_ENCHANT",
+
+	-- Profession trainer events
+	"TRAINER_SHOW",
+	"TRAINER_CLOSED", 
+	"TRAINER_UPDATE",
+
+	-- Profession skill updates and messages
+	"CHAT_MSG_SKILL",
 
 	-- Spell casting events (for tracking actual crafting)
 	"UNIT_SPELLCAST_START",
@@ -101,6 +113,14 @@ local reagentSnapshot = {}  -- [itemId] = count
 -- UI state tracking
 local tradeSkillFrameOpen = false
 local craftFrameOpen = false
+local trainerFrameOpen = false
+
+-- Trainer state tracking
+local currentTrainer = {
+	name = nil,
+	numServices = 0,
+	selectedIndex = nil,
+}
 
 -- Helper function to get tradeskill info
 local function getTradeSkillInfo(index)
@@ -242,21 +262,21 @@ local function getCraftReagents(index)
 	return reagents
 end
 
--- Helper function to snapshot reagent counts
+-- Helper function to snapshot reagent counts (Classic Era compatible)
 local function snapshotReagents()
 	local snapshot = {}
 	local NUM_BAG_SLOTS = NUM_BAG_SLOTS or 4
 
-	-- Scan all bags
+	-- Scan all bags using Classic Era API
 	for bagId = 0, NUM_BAG_SLOTS do
-		local numSlots = _C_Container.GetContainerNumSlots(bagId)
-		if numSlots then
+		local numSlots = _GetContainerNumSlots(bagId)
+		if numSlots and numSlots > 0 then
 			for slotId = 1, numSlots do
-				local itemId = _C_Container.GetContainerItemID(bagId, slotId)
-				if itemId then
-					local containerInfo = _C_Container.GetContainerItemInfo(bagId, slotId)
-					if containerInfo then
-						local stackCount = containerInfo.stackCount or 1
+				local itemLink = _GetContainerItemLink(bagId, slotId)
+				if itemLink then
+					local _, stackCount = _GetContainerItemInfo(bagId, slotId)
+					local itemId = tonumber(itemLink:match("item:(%d+)"))
+					if itemId and stackCount then
 						snapshot[itemId] = (snapshot[itemId] or 0) + stackCount
 					end
 				end
@@ -302,14 +322,25 @@ local function compareReagentSnapshots(oldSnapshot, newSnapshot)
 	return changes
 end
 
--- Register all events
+-- Register all events with error handling
+local registeredEvents = {}
 for _, event in ipairs(PROFESSION_EVENTS) do
-	investigationFrame:RegisterEvent(event)
-	print("|cff00ff00Registered:|r " .. event)
+	local success = pcall(investigationFrame.RegisterEvent, investigationFrame, event)
+	if success then
+		registeredEvents[event] = true
+		print("|cff00ff00Registered:|r " .. event)
+	else
+		print("|cffff6600Skipped (not available):|r " .. event)
+	end
 end
 
 -- Event handler with detailed logging
 investigationFrame:SetScript("OnEvent", function(self, event, ...)
+	-- Only process events we successfully registered
+	if not registeredEvents[event] then
+		return
+	end
+	
 	local arg1, arg2, arg3, arg4 = ...
 	eventCounts[event] = (eventCounts[event] or 0) + 1
 
@@ -623,6 +654,64 @@ investigationFrame:SetScript("OnEvent", function(self, event, ...)
 			activeCraftingSpell = nil
 		end
 
+	elseif event == "TRAINER_SHOW" then
+		print("  |cffffaa00Trainer Window Opened|r")
+		
+		-- Get trainer info if available (Classic Era compatible)
+		if GetNumTrainerServices then
+			local success, numServices = pcall(GetNumTrainerServices)
+			if success and numServices then
+				currentTrainer.numServices = numServices
+				print("  |cffffaa00  Available Services:|r " .. currentTrainer.numServices)
+				
+				-- Show first few services as sample
+				if currentTrainer.numServices > 0 then
+					print("  |cffaaaaaa  Sample services:|r")
+					for i = 1, math.min(5, currentTrainer.numServices) do
+						if GetTrainerServiceInfo then
+							local success2, serviceName, serviceSubText, serviceType, isExpanded = pcall(GetTrainerServiceInfo, i)
+							if success2 and serviceName then
+								local typeStr = serviceType or "unknown"
+								print("    |cffaaaaaa  [" .. i .. "] " .. serviceName .. " (" .. typeStr .. ")|r")
+							end
+						end
+					end
+					if currentTrainer.numServices > 5 then
+						print("    |cffaaaaaa  ... and " .. (currentTrainer.numServices - 5) .. " more|r")
+					end
+				end
+			end
+		end
+
+	elseif event == "TRAINER_CLOSED" then
+		print("  |cffffaa00Trainer Window Closed|r")
+		
+		-- Clear trainer state
+		currentTrainer.name = nil
+		currentTrainer.numServices = 0
+		currentTrainer.selectedIndex = nil
+
+	elseif event == "TRAINER_UPDATE" then
+		print("  |cffffaa00Trainer Updated|r")
+		
+		if GetNumTrainerServices then
+			local success, numServices = pcall(GetNumTrainerServices)
+			if success and numServices then
+				local oldNumServices = currentTrainer.numServices
+				currentTrainer.numServices = numServices
+				
+				if oldNumServices ~= currentTrainer.numServices then
+					print("  |cffffaa00  Service count changed:|r " .. oldNumServices .. " → " .. currentTrainer.numServices)
+				end
+			end
+		end
+
+	elseif event == "CHAT_MSG_SKILL" then
+		local message = arg1
+		print("  |cff00ff00Skill Message:|r " .. tostring(message))
+
+
+
 	elseif event == "PLAYER_ENTERING_WORLD" then
 		local isInitialLogin, isReloadingUi = arg1, arg2
 		print("  |cffffaa00Initial Login:|r " .. tostring(isInitialLogin))
@@ -676,10 +765,32 @@ local function checkCraftFrameState()
 	end
 end
 
+-- Monitor ClassTrainerFrame visibility
+local function checkTrainerFrameState()
+	if ClassTrainerFrame and ClassTrainerFrame:IsShown() then
+		if not trainerFrameOpen then
+			trainerFrameOpen = true
+			local currentTime = _GetTime()
+			local delta = currentTime - lastEventTime
+			print("|cffff9900[" .. string.format("%.2f", currentTime) .. "] (+" .. string.format("%.0fms", delta * 1000) .. ") [UI State]|r ClassTrainerFrame → |cff00ff00VISIBLE|r")
+			lastEventTime = currentTime
+		end
+	else
+		if trainerFrameOpen then
+			trainerFrameOpen = false
+			local currentTime = _GetTime()
+			local delta = currentTime - lastEventTime
+			print("|cffff9900[" .. string.format("%.2f", currentTime) .. "] (+" .. string.format("%.0fms", delta * 1000) .. ") [UI State]|r ClassTrainerFrame → |cffff0000HIDDEN|r")
+			lastEventTime = currentTime
+		end
+	end
+end
+
 -- Add OnUpdate for continuous UI monitoring
 investigationFrame:SetScript("OnUpdate", function()
 	checkTradeSkillFrameState()
 	checkCraftFrameState()
+	checkTrainerFrameState()
 end)
 
 -- Hook profession-related functions
@@ -792,5 +903,61 @@ if SelectCraft then
 	end)
 end
 
+-- Profession trainer function hooks (Classic Era compatible)
+if BuyTrainerService then
+	local success = pcall(hooksecurefunc, "BuyTrainerService", function(index)
+		local currentTime = _GetTime()
+		local delta = currentTime - lastEventTime
+		print("|cffff9900[" .. string.format("%.2f", currentTime) .. "] (+" .. string.format("%.0fms", delta * 1000) .. ") [Trainer Hook]|r BuyTrainerService")
+		
+		if GetTrainerServiceInfo then
+			local success2, serviceName, serviceSubText, serviceType, isExpanded = pcall(GetTrainerServiceInfo, index)
+			if success2 and serviceName then
+				print("  |cffffaa00Service:|r " .. serviceName .. " (type: " .. tostring(serviceType) .. ")")
+			end
+		end
+		
+		if GetTrainerServiceCost then
+			local success3, cost = pcall(GetTrainerServiceCost, index)
+			if success3 and cost and cost > 0 then
+				print("  |cffffaa00Cost:|r " .. cost .. " copper")
+			end
+		end
+		
+		lastEventTime = currentTime
+	end)
+	if not success then
+		print("|cffff6600Warning: Could not hook BuyTrainerService (not available in Classic Era)|r")
+	end
+end
+
+if CloseTrainer then
+	local success = pcall(hooksecurefunc, "CloseTrainer", function()
+		local currentTime = _GetTime()
+		local delta = currentTime - lastEventTime
+		print("|cffff9900[" .. string.format("%.2f", currentTime) .. "] (+" .. string.format("%.0fms", delta * 1000) .. ") [Trainer Hook]|r CloseTrainer")
+		lastEventTime = currentTime
+	end)
+	if not success then
+		print("|cffff6600Warning: Could not hook CloseTrainer (not available in Classic Era)|r")
+	end
+end
+
+-- Only hook functions that exist in Classic Era
+if SelectTradeSkill then
+	pcall(hooksecurefunc, "SelectTradeSkill", function(index)
+		-- Don't log this - fires constantly on mouse-over
+		currentTradeSkill.selectedIndex = index
+	end)
+end
+
+if SelectCraft then
+	pcall(hooksecurefunc, "SelectCraft", function(index)
+		-- Don't log this - fires constantly on mouse-over
+		currentCraft.selectedIndex = index
+	end)
+end
+
 print("|cff00ff00Profession investigation ready - events will print to chat|r")
-print("|cff00ff00Open any profession window and perform crafting to test events|r")
+print("|cff00ff00Open any profession window, trainer, and perform crafting to test events|r")
+print("|cff00ff00Classic Era (1.15) compatible version loaded|r")
