@@ -18,22 +18,19 @@ print("===============================================")
 -- Event tracking frame
 local investigationFrame = _CreateFrame("Frame")
 
--- All possible merchant-related events for Classic Era
+-- Core merchant-specific events for Classic Era
 local MERCHANT_EVENTS = {
 	-- Merchant lifecycle events
 	"MERCHANT_SHOW",
 	"MERCHANT_CLOSED",
 	"MERCHANT_UPDATE",
 
-	-- Money tracking
+	-- Money tracking (only when merchant is open)
 	"PLAYER_MONEY",
 
-	-- Bag events (for tracking purchased items)
+	-- Bag events (only when merchant is open)
 	"BAG_UPDATE",
 	"BAG_UPDATE_DELAYED",
-
-	-- Durability events (for repair tracking)
-	"UPDATE_INVENTORY_DURABILITY",
 
 	-- Player entering world (for initialization)
 	"PLAYER_ENTERING_WORLD",
@@ -60,6 +57,8 @@ local repairCostBeforeRepair = nil
 
 -- UI state tracking
 local merchantFrameVisible = false
+local currentMerchantTab = 1  -- 1 = merchant, 2 = buyback
+
 
 -- Helper function to get merchant item details
 local function getMerchantItemDetails(index)
@@ -154,14 +153,25 @@ local function countItemInBags(itemName)
 	return totalCount
 end
 
--- Register all events
+-- Register all events with error handling
+local registeredEvents = {}
 for _, event in ipairs(MERCHANT_EVENTS) do
-	investigationFrame:RegisterEvent(event)
-	print("|cff00ff00Registered:|r " .. event)
+	local success = pcall(investigationFrame.RegisterEvent, investigationFrame, event)
+	if success then
+		registeredEvents[event] = true
+		print("|cff00ff00Registered:|r " .. event)
+	else
+		print("|cffff6600Skipped (not available):|r " .. event)
+	end
 end
 
 -- Event handler with detailed logging
 investigationFrame:SetScript("OnEvent", function(self, event, ...)
+	-- Only process events we successfully registered
+	if not registeredEvents[event] then
+		return
+	end
+	
 	local arg1, arg2, arg3, arg4 = ...
 	eventCounts[event] = (eventCounts[event] or 0) + 1
 
@@ -255,23 +265,23 @@ investigationFrame:SetScript("OnEvent", function(self, event, ...)
 		merchantSnapshot = newSnapshot
 
 	elseif event == "PLAYER_MONEY" then
-		local currentMoney = _GetMoney()
-		local moneyChange = currentMoney - lastMoneyAmount
-		local changeStr = ""
-
-		if moneyChange > 0 then
-			changeStr = "|cff00ff00+" .. formatMoney(moneyChange) .. "|r (gained)"
-		elseif moneyChange < 0 then
-			changeStr = "|cffff0000-" .. formatMoney(math.abs(moneyChange)) .. "|r (spent)"
-		else
-			changeStr = "no change"
-		end
-
-		print("  |cffffaa00Money Changed:|r " .. formatMoney(currentMoney) .. " (" .. changeStr .. ")")
-
-		-- Associate with merchant activity if merchant is open
+		-- Only log if merchant is open (avoid spam from other money changes)
 		if merchantOpen then
+			local currentMoney = _GetMoney()
+			local moneyChange = currentMoney - lastMoneyAmount
+			local changeStr = ""
+
+			if moneyChange > 0 then
+				changeStr = "|cff00ff00+" .. formatMoney(moneyChange) .. "|r (gained)"
+			elseif moneyChange < 0 then
+				changeStr = "|cffff0000-" .. formatMoney(math.abs(moneyChange)) .. "|r (spent)"
+			else
+				changeStr = "no change"
+			end
+
+			print("  |cffffaa00Money Changed:|r " .. formatMoney(currentMoney) .. " (" .. changeStr .. ")")
 			print("  |cff00ff00  Money change while merchant is OPEN|r")
+			
 			if merchantMoneySnapshot then
 				local totalChange = currentMoney - merchantMoneySnapshot
 				if totalChange < 0 then
@@ -280,51 +290,43 @@ investigationFrame:SetScript("OnEvent", function(self, event, ...)
 			end
 		end
 
-		lastMoneyAmount = currentMoney
+		lastMoneyAmount = _GetMoney()
 
 	elseif event == "BAG_UPDATE" then
-		local bagId = arg1
-		print("  |cffffaa00Bag Updated:|r bagId " .. tostring(bagId))
+		-- Only log if merchant is open (avoid spam)
+		if merchantOpen then
+			local bagId = arg1
+			print("  |cffffaa00Bag Updated:|r bagId " .. tostring(bagId))
 
-		-- Check for any pending purchases
-		if merchantOpen and next(activePurchases) then
-			for itemName, purchaseData in pairs(activePurchases) do
-				local currentCount = countItemInBags(itemName)
-				local timeSincePurchase = currentTime - purchaseData.timestamp
+			-- Check for any pending purchases
+			if next(activePurchases) then
+				for itemName, purchaseData in pairs(activePurchases) do
+					local currentCount = countItemInBags(itemName)
+					local timeSincePurchase = currentTime - purchaseData.timestamp
 
-				if currentCount > purchaseData.countBefore then
-					local amountReceived = currentCount - purchaseData.countBefore
-					print("  |cff00ff00  ✓ Purchased item arrived in bags:|r " .. itemName .. " +" .. amountReceived)
-					print("  |cff00ff00    Arrival timing: +" .. string.format("%.0fms", timeSincePurchase * 1000) .. " after BuyMerchantItem|r")
-					-- Remove from tracking
-					activePurchases[itemName] = nil
+					if currentCount > purchaseData.countBefore then
+						local amountReceived = currentCount - purchaseData.countBefore
+						print("  |cff00ff00  ✓ Purchased item arrived in bags:|r " .. itemName .. " +" .. amountReceived)
+						print("  |cff00ff00    Arrival timing: +" .. string.format("%.0fms", timeSincePurchase * 1000) .. " after BuyMerchantItem|r")
+						-- Remove from tracking
+						activePurchases[itemName] = nil
+					end
 				end
 			end
 		end
 
 	elseif event == "BAG_UPDATE_DELAYED" then
-		print("  |cffffaa00Info:|r All pending bag updates completed")
+		-- Only log if merchant is open (avoid spam)
+		if merchantOpen then
+			print("  |cffffaa00Info:|r All pending bag updates completed")
 
-		-- Final check for any pending purchases that didn't arrive yet
-		if next(activePurchases) then
-			print("  |cffff6600  ⚠ Some purchased items still not visible in bags:|r")
-			for itemName, _ in pairs(activePurchases) do
-				print("    |cffff6600  - " .. itemName .. "|r")
+			-- Final check for any pending purchases that didn't arrive yet
+			if next(activePurchases) then
+				print("  |cffff6600  ⚠ Some purchased items still not visible in bags:|r")
+				for itemName, _ in pairs(activePurchases) do
+					print("    |cffff6600  - " .. itemName .. "|r")
+				end
 			end
-		end
-
-	elseif event == "UPDATE_INVENTORY_DURABILITY" then
-		-- Only log if merchant is open and repairs happened
-		if merchantOpen and repairCostBeforeRepair then
-			print("  |cffffaa00Durability Update:|r Equipment repaired")
-			local repairCost, needsRepair = _GetRepairAllCost()
-
-			if not needsRepair then
-				print("  |cff00ff00  ✓ Repair completed successfully|r")
-				print("  |cffffaa00    Cost:|r " .. formatMoney(repairCostBeforeRepair))
-			end
-
-			repairCostBeforeRepair = nil
 		end
 
 	elseif event == "PLAYER_ENTERING_WORLD" then
@@ -342,7 +344,7 @@ investigationFrame:SetScript("OnEvent", function(self, event, ...)
 	end
 end)
 
--- Monitor MerchantFrame visibility
+-- Monitor MerchantFrame visibility and tab state
 local function checkMerchantFrameState()
 	if MerchantFrame and MerchantFrame:IsShown() then
 		if not merchantFrameVisible then
@@ -352,6 +354,21 @@ local function checkMerchantFrameState()
 			print("|cffff9900[" .. string.format("%.2f", currentTime) .. "] (+" .. string.format("%.0fms", delta * 1000) .. ") [Merchant UI]|r MerchantFrame → |cff00ff00VISIBLE|r")
 			lastEventTime = currentTime
 		end
+
+		-- Check merchant tab state (1 = merchant, 2 = buyback)
+		local newTab = 1
+		if MerchantFrameTab2 and MerchantFrameTab2.GetChecked and MerchantFrameTab2:GetChecked() then
+			newTab = 2
+		end
+
+		if newTab ~= currentMerchantTab then
+			local currentTime = _GetTime()
+			local delta = currentTime - lastEventTime
+			local tabName = newTab == 1 and "MERCHANT" or "BUYBACK"
+			print("|cffff9900[" .. string.format("%.2f", currentTime) .. "] (+" .. string.format("%.0fms", delta * 1000) .. ") [Merchant UI]|r Tab switched to |cff00ffff" .. tabName .. "|r")
+			lastEventTime = currentTime
+			currentMerchantTab = newTab
+		end
 	else
 		if merchantFrameVisible then
 			merchantFrameVisible = false
@@ -359,9 +376,12 @@ local function checkMerchantFrameState()
 			local delta = currentTime - lastEventTime
 			print("|cffff9900[" .. string.format("%.2f", currentTime) .. "] (+" .. string.format("%.0fms", delta * 1000) .. ") [Merchant UI]|r MerchantFrame → |cffff0000HIDDEN|r")
 			lastEventTime = currentTime
+			currentMerchantTab = 1  -- Reset to merchant tab
 		end
 	end
 end
+
+
 
 -- Update UI state regularly
 investigationFrame:SetScript("OnUpdate", function()
@@ -436,6 +456,47 @@ if CloseMerchant then
 		local currentTime = _GetTime()
 		local delta = currentTime - lastEventTime
 		print("|cffff9900[" .. string.format("%.2f", currentTime) .. "] (+" .. string.format("%.0fms", delta * 1000) .. ") [Merchant Hook]|r CloseMerchant")
+		lastEventTime = currentTime
+	end)
+end
+
+-- Merchant tab and UI update hooks
+if MerchantFrame_UpdateMerchantInfo then
+	hooksecurefunc("MerchantFrame_UpdateMerchantInfo", function()
+		local currentTime = _GetTime()
+		local delta = currentTime - lastEventTime
+		print("|cffff9900[" .. string.format("%.2f", currentTime) .. "] (+" .. string.format("%.0fms", delta * 1000) .. ") [Merchant Hook]|r MerchantFrame_UpdateMerchantInfo")
+		lastEventTime = currentTime
+	end)
+end
+
+if MerchantFrame_UpdateBuybackInfo then
+	hooksecurefunc("MerchantFrame_UpdateBuybackInfo", function()
+		local currentTime = _GetTime()
+		local delta = currentTime - lastEventTime
+		print("|cffff9900[" .. string.format("%.2f", currentTime) .. "] (+" .. string.format("%.0fms", delta * 1000) .. ") [Merchant Hook]|r MerchantFrame_UpdateBuybackInfo")
+		lastEventTime = currentTime
+	end)
+end
+
+-- Sell cursor hooks
+if ShowMerchantSellCursor then
+	hooksecurefunc("ShowMerchantSellCursor", function(index)
+		local currentTime = _GetTime()
+		local delta = currentTime - lastEventTime
+		print("|cffff9900[" .. string.format("%.2f", currentTime) .. "] (+" .. string.format("%.0fms", delta * 1000) .. ") [Merchant Hook]|r ShowMerchantSellCursor → slot: " .. tostring(index))
+		lastEventTime = currentTime
+	end)
+end
+
+
+
+-- Gossip interaction hooks
+if SelectGossipOption then
+	hooksecurefunc("SelectGossipOption", function(index)
+		local currentTime = _GetTime()
+		local delta = currentTime - lastEventTime
+		print("|cffff9900[" .. string.format("%.2f", currentTime) .. "] (+" .. string.format("%.0fms", delta * 1000) .. ") [Gossip Hook]|r SelectGossipOption → " .. tostring(index))
 		lastEventTime = currentTime
 	end)
 end
