@@ -576,6 +576,59 @@ SlashCmdList["TRADESTATE"] = function()
 	print("|cff00ff00=== END TRADE STATE ===|r")
 end
 
+-- Test functions for trade hooks
+local function testTradeHooks()
+	print("|cff00ff00=== TESTING TRADE HOOKS ===|r")
+	
+	-- Test InitiateTrade hook (if we have a target)
+	if UnitExists("target") and UnitIsPlayer("target") then
+		print("|cffffaa00Testing InitiateTrade hook...|r")
+		if InitiateTrade then
+			InitiateTrade("target")
+		else
+			print("|cffff0000InitiateTrade function not available|r")
+		end
+	else
+		print("|cffff6600Cannot test InitiateTrade - no player target|r")
+	end
+	
+	-- Test SetTradeMoney hook (if trade window is open)
+	if TradeFrame and TradeFrame:IsShown() then
+		print("|cffffaa00Testing SetTradeMoney hook...|r")
+		if SetTradeMoney then
+			SetTradeMoney(100) -- Set 1 silver
+		else
+			print("|cffff0000SetTradeMoney function not available|r")
+		end
+		
+		-- Test AcceptTrade hook
+		print("|cffffaa00Testing AcceptTrade hook...|r")
+		if AcceptTrade then
+			AcceptTrade()
+		else
+			print("|cffff0000AcceptTrade function not available|r")
+		end
+		
+		-- Test CancelTrade hook
+		print("|cffffaa00Testing CancelTrade hook...|r")
+		if CancelTrade then
+			CancelTrade()
+		else
+			print("|cffff0000CancelTrade function not available|r")
+		end
+	else
+		print("|cffff6600Cannot test trade window hooks - trade window not open|r")
+		print("|cffff6600Open a trade window first, then run /testtradehooks|r")
+	end
+	
+	print("|cff00ff00=== TRADE HOOK TESTS COMPLETE ===|r")
+end
+
+-- Slash command to test trade hooks
+SLASH_TESTTRADEHOOKS1 = "/testtradehooks"
+SlashCmdList["TESTTRADEHOOKS"] = testTradeHooks
+
 print("|cff00ff00Trade investigation ready - events will print to chat|r")
 print("|cff00ff00Right-click other players and select 'Trade' to test events|r")
 print("|cff00ff00Use /tradestate to see current trade state|r")
+print("|cff00ff00Use /testtradehooks to test trade function hooks|r")
