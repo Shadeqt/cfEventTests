@@ -1,0 +1,7 @@
+# WoW saved variables
+*.lua.bak
+WTF/
+
+# OS files
+.DS_Store
+Thumbs.db

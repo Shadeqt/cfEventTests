@@ -1,0 +1,10 @@
+## Interface: 11508
+## Title:     cfEventTests
+## Notes:     Event testing for cfItemColors
+## Author:    Cowfoot
+## Version:   1.0
+
+# Event Tests
+#BAG_BANK_EVENT_TEST.lua
+#QUEST_EVENT_TEST.lua
+CHARACTER_EVENT_TEST.lua
