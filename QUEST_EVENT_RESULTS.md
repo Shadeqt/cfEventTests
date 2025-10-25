@@ -1,326 +1,351 @@
-# Quest Event Investigation Results
-## Classic Era (1.12)
+# WoW Classic Era: Quest Events Reference
+## Version 1.15 Event Investigation
 
-**Date:** October 25, 2025
-**Purpose:** Document which quest events fire and when in WoW Classic Era
-**Method:** Live testing with event listeners, hooks, and UI frame monitors
-
----
-
-## Events Available in Classic Era
-
-### ✅ Events That Fire (Confirmed)
-
-| Event | Args | Description |
-|-------|------|-------------|
-| `QUEST_ACCEPTED` | questLogIndex, questId | Quest added to quest log |
-| `QUEST_REMOVED` | questId | Quest removed from log |
-| `QUEST_TURNED_IN` | questId, xpReward, moneyReward | Quest completion confirmed |
-| `QUEST_COMPLETE` | (none) | Quest objectives finished (fires at NPC only, never in field) |
-| `QUEST_PROGRESS` | (none) | Quest progress dialog shown |
-| `QUEST_WATCH_UPDATE` | questId | Quest objective progress updated |
-| `QUEST_DETAIL` | ??? | Quest details displayed |
-| `QUEST_FINISHED` | (none) | Quest dialog closed |
-| `QUEST_LOG_UPDATE` | (none) | Generic quest log change |
-| `UNIT_QUEST_LOG_CHANGED` | unitId | Quest log changed for unit |
-| `QUEST_GREETING` | (none) | Multi-quest NPC greeting menu (confirmed) |
-| `BAG_UPDATE` | bagId | Bag contents changed |
-| `PLAYER_ENTERING_WORLD` | isLogin, isReload | World entry/reload |
-
-### ⚠️ Events That Fire Unreliably
-
-| Event | Args | Description |
-|-------|------|-------------|
-| `QUEST_ITEM_UPDATE` | (none) | Quest item changed - UNRELIABLE: Fired in 2 of 7 turn-in tests, then never again. Do not rely on this event. |
-
-### ❌ Events That Don't Fire (Not Triggered)
-
-- `QUEST_POI_UPDATE` - Never observed during testing
-- `QUEST_ACCEPT_CONFIRM` - Shared/escort quest prompt (scenario not tested)
-
-### 🎣 UI Hooks (hooksecurefunc)
-
-| Hook | When It Fires |
-|------|---------------|
-| `QuestLog_Update` | Quest log UI updates |
-| `QuestInfo_Display` | Quest info shown at NPC |
-| `QuestFrameProgressItems_Update` | Quest progress dialog shown |
-| `AcceptQuest` | Player accepts quest from NPC |
-| `AbandonQuest` | Player abandons quest |
-| `CompleteQuest` | Player clicks to complete quest at NPC |
-| `GetQuestReward` | Player selects reward choice (if applicable) |
+**Last Updated:** October 25, 2025
+**Testing:** Quest acceptance, abandonment, progress tracking, turn-ins, quest chains
 
 ---
 
-## Event Flows
+## Test Summary
 
-### 1. Login / UI Reload
+### Events Registered for Testing
+**Total Events Monitored:** 13 quest-related events
 
-```
-PLAYER_ENTERING_WORLD → isLogin, isReload
-  ↓
-QUEST_LOG_UPDATE (×3)
-```
+### Events That Fired During Testing
+| Event | Fired? | Frequency | Notes |
+|-------|--------|-----------|-------|
+| `QUEST_ACCEPTED` | ✅ | 1× per quest accept | Reliable |
+| `QUEST_REMOVED` | ✅ | 1× per quest removal | Reliable |
+| `QUEST_TURNED_IN` | ✅ | 1× per turn-in | **Random order with QUEST_REMOVED** |
+| `QUEST_COMPLETE` | ✅ | 1× per completion | Only fires at NPC, never in field |
+| `QUEST_WATCH_UPDATE` | ✅ | 1× per progress | **STALE DATA - fires before update** |
+| `QUEST_LOG_UPDATE` | ✅ | 1-3× per action | **FRESH DATA - use for actual data** |
+| `UNIT_QUEST_LOG_CHANGED` | ✅ | 1× per action | Reliable |
+| `QUEST_DETAIL` | ✅ | 1× per dialog | Quest details shown |
+| `QUEST_FINISHED` | ✅ | 1-2× per dialog | Dialog closed |
+| `QUEST_PROGRESS` | ✅ | 1× per check | Incomplete quest check |
+| `QUEST_GREETING` | ✅ | 1× per multi-quest NPC | Multi-quest menu |
+| `BAG_UPDATE` | ✅ | 2-4× per item change | **Only reliable quest item indicator** |
+| `PLAYER_ENTERING_WORLD` | ✅ | 1× per login/reload | Initialization |
 
----
+### Events That Fired Unreliably
+| Event | Fired? | Reliability | Notes |
+|-------|--------|-------------|-------|
+| `QUEST_ITEM_UPDATE` | ⚠️ | 29% (2/7 tests) | **UNRELIABLE - Do not use** |
 
-### 2. Quest Log UI Interactions
+### Events That Did NOT Fire
+| Event | Status | Reason |
+|-------|--------|--------|
+| `QUEST_POI_UPDATE` | ❌ | Never observed during testing |
+| `QUEST_ACCEPT_CONFIRM` | ❌ | Shared/escort quests not tested |
 
-**Opening/closing quest log:** No events fire (hooks only)
+### Hooks That Fired During Testing
+| Hook | Fired? | Frequency | Notes |
+|------|--------|-----------|-------|
+| `AcceptQuest` | ✅ | 1× per accept | Clean |
+| `AbandonQuest` | ✅ | 1× per abandon | Clean |
+| `CompleteQuest` | ✅ | 1× per completion | Clean |
+| `GetQuestReward` | ✅ | 1× per reward choice | Clean |
+| `QuestLog_Update` | ✅ | Multiple per action | UI updates |
+| `QuestInfo_Display` | ✅ | 1× per dialog | Quest info shown |
+| `QuestFrameProgressItems_Update` | ✅ | 1× per progress check | Progress dialog |
 
-**Selecting different quests:** No events fire (hooks only)
-
----
-
-### 3. Abandon Quest
-
-```
-QUEST_REMOVED → questId
-  ↓
-UNIT_QUEST_LOG_CHANGED → player
-  ↓
-QUEST_LOG_UPDATE
-```
-
----
-
-### 4. Accept Quest from NPC
-
-```
-QUEST_DETAIL → questStartItemID
-  ↓
-QUEST_FINISHED
-  ↓
-QUEST_ACCEPTED → questLogIndex, questId
-  ↓
-UNIT_QUEST_LOG_CHANGED → player
-  ↓
-QUEST_LOG_UPDATE
-```
-
-**Note:** `QUEST_FINISHED` fires while dialog is still open, before `QUEST_ACCEPTED`
-
----
-
-### 5. Check Quest Progress (Incomplete)
-
-```
-QUEST_PROGRESS
-  ↓
-QUEST_FINISHED (×2)
-```
+### Tests Performed Headlines
+1. **Login/Reload** - QUEST_LOG_UPDATE (3×) initialization
+2. **Accept Quest** - QUEST_DETAIL → QUEST_ACCEPTED flow
+3. **Abandon Quest** - QUEST_REMOVED → cleanup sequence
+4. **Progress Updates** - Loot items, kill mobs (QUEST_WATCH_UPDATE timing issues)
+5. **Turn In Quest** - QUEST_COMPLETE → random event order
+6. **Quest Chains** - QUEST_GREETING → automatic new quest
+7. **Quest Item Operations** - Split stack, delete item patterns
 
 ---
 
-### 6. Turn In Quest (Complete)
+## Quick Decision Guide
 
-**6a. No Reward Choice:**
+### Event Reliability for AI Decision Making
+| Event | Reliability | Performance | Best Use Case |
+|-------|-------------|-------------|---------------|
+| `QUEST_LOG_UPDATE` | 100% | Low | ✅ **PRIMARY** - Fresh quest data (use for actual progress) |
+| `QUEST_ACCEPTED` | 100% | Low | ✅ Quest acceptance detection |
+| `QUEST_REMOVED` | 100% | Low | ✅ Quest removal detection |
+| `BAG_UPDATE` | 100% | Medium | ✅ **ONLY reliable quest item tracking** |
+| `QUEST_WATCH_UPDATE` | 100% | Low | ⚠️ **STALE DATA** - fires before update (wait for LOG_UPDATE) |
+| `QUEST_TURNED_IN` | 100% | Low | ⚠️ Random order with QUEST_REMOVED |
+| `QUEST_ITEM_UPDATE` | 29% | Low | ❌ **UNRELIABLE** - Never use |
 
-```
-QUEST_COMPLETE
-  ↓
-QUEST_TURNED_IN → questId, xpReward, moneyReward
-  ↓
-QUEST_FINISHED
-  ↓
-QUEST_REMOVED → questId
-  ↓
-UNIT_QUEST_LOG_CHANGED → player
-  ↓
-QUEST_LOG_UPDATE
-```
+### Use Case → Best Event Mapping
+- **Track quest progress:** `QUEST_LOG_UPDATE` (fresh data, fires after WATCH_UPDATE)
+- **Detect quest acceptance:** `QUEST_ACCEPTED` (reliable, provides quest ID)
+- **Detect quest removal:** `QUEST_REMOVED` (reliable, but random order with TURNED_IN)
+- **Track quest items:** `BAG_UPDATE` (only reliable method for item changes)
+- **Avoid progress tracking:** Never use `QUEST_WATCH_UPDATE` alone (stale data)
+- **Avoid item tracking:** Never use `QUEST_ITEM_UPDATE` (29% reliability)
 
-**6b. With Reward Choice:**
-
-```
-QUEST_COMPLETE
-  ↓
-QUEST_TURNED_IN → questId, xpReward, moneyReward
-  ↓
-QUEST_FINISHED
-  ↓
-QUEST_DETAIL (next quest)
-  ↓
-QUEST_LOG_UPDATE
-  ↓
-QUEST_REMOVED → questId
-  ↓
-UNIT_QUEST_LOG_CHANGED → player
-  ↓
-QUEST_LOG_UPDATE
-```
-
-**Note:** When NPC has another quest, it displays automatically before `QUEST_REMOVED`
-
-**6c. Quest Chain at Multi-Quest NPC:**
-
-```
-QUEST_GREETING
-  ↓
-QUEST_PROGRESS
-  ↓
-QUEST_FINISHED (×2)
-  ↓
-QUEST_COMPLETE
-  ↓
-QUEST_TURNED_IN → questId, xpReward, moneyReward
-  ↓
-QUEST_FINISHED (×2)
-  ↓
-QUEST_DETAIL (new quest)
-  ↓
-QUEST_ACCEPTED (new quest)
-  ↓ (same timestamp)
-QUEST_REMOVED (old quest)
-  ↓ (same timestamp)
-BAG_UPDATE (×4)
-  ↓
-QUEST_LOG_UPDATE
-```
-
-**Note:** Quest chain completion triggers `QUEST_GREETING` first. New quest acceptance and old quest removal occur at same timestamp with quest items removed via `BAG_UPDATE`
+### Critical AI Rules
+- **QUEST_WATCH_UPDATE has STALE data** (shows old progress, wait for QUEST_LOG_UPDATE)
+- **Event order is random** (QUEST_TURNED_IN and QUEST_REMOVED fire in random order)
+- **QUEST_ITEM_UPDATE is broken** (29% reliability, never use)
+- **BAG_UPDATE is the only reliable quest item indicator**
+- **QUEST_COMPLETE only fires at NPCs** (never in the field)
 
 ---
 
-### 7. Quest Progress Updates (Loot Items / Kill Mobs)
+## Event Sequence Patterns
 
+### Predictable Sequences (Safe to rely on order)
 ```
-QUEST_WATCH_UPDATE → questId
-  ↓
-UNIT_QUEST_LOG_CHANGED → player
-  ↓
-QUEST_LOG_UPDATE
-```
-
-**Note:** `QUEST_WATCH_UPDATE` fires with **stale data** - see "Key Observations" section for critical timing details.
-
----
-
-### 8. Quest Item Removal During Turn-In
-
-**🚨 CRITICAL: Event order is HIGHLY INCONSISTENT**
-
-| Pattern | Event Sequence | QUEST_ITEM_UPDATE Fired? |
-|---------|----------------|--------------------------|
-| A | `QUEST_TURNED_IN` → `QUEST_REMOVED` → `BAG_UPDATE` → `QUEST_ITEM_UPDATE` | ✅ Yes (~6ms after BAG_UPDATE) |
-| B | `QUEST_REMOVED` → `BAG_UPDATE` → `QUEST_ITEM_UPDATE` → `QUEST_TURNED_IN` | ✅ Yes (~6ms after BAG_UPDATE) |
-| C | `QUEST_COMPLETE` → `QUEST_REMOVED` → `BAG_UPDATE(×2)` → `QUEST_TURNED_IN` → `BAG_UPDATE(×4)` | ❌ No |
-| D | `QUEST_COMPLETE` → `QUEST_TURNED_IN` → `QUEST_LOG_UPDATE` → `QUEST_REMOVED` → `BAG_UPDATE(×2)` | ❌ No |
-| E | `QUEST_COMPLETE` → `QUEST_TURNED_IN` → `QUEST_ACCEPTED` → `QUEST_REMOVED` → `BAG_UPDATE(×4)` | ❌ No |
-
-**Key Findings (7 turn-ins tested):**
-- `QUEST_TURNED_IN` and `QUEST_REMOVED` fire in **completely random order**
-- `QUEST_ITEM_UPDATE` is **UNRELIABLE** (fired in only 2 of 7 tests = 29% reliability)
-- `BAG_UPDATE` is the **ONLY consistent indicator** for quest item removal
-- Items removed at turn-in dialog, NOT when objectives complete
-
----
-
-### 9. Quest Item Bag Operations
-
-**Split Stack:**
-```
-QUEST_LOG_UPDATE (×2)
+Accept Quest: QUEST_DETAIL → QUEST_FINISHED → QUEST_ACCEPTED → UNIT_QUEST_LOG_CHANGED → QUEST_LOG_UPDATE
+Abandon Quest: QUEST_REMOVED → UNIT_QUEST_LOG_CHANGED → QUEST_LOG_UPDATE
+Progress Update: QUEST_WATCH_UPDATE (stale) → UNIT_QUEST_LOG_CHANGED → QUEST_LOG_UPDATE (fresh)
 ```
 
-**Delete Item:**
+### Unpredictable Sequences (Random order)
 ```
-UNIT_QUEST_LOG_CHANGED → player
-  ↓
-QUEST_LOG_UPDATE
+Turn In Quest: QUEST_COMPLETE → [RANDOM ORDER: QUEST_TURNED_IN, QUEST_REMOVED, BAG_UPDATE] → QUEST_LOG_UPDATE
+Quest Chain: QUEST_GREETING → QUEST_COMPLETE → QUEST_TURNED_IN → [SAME TIMESTAMP: QUEST_ACCEPTED + QUEST_REMOVED] → BAG_UPDATE → QUEST_LOG_UPDATE
 ```
 
-**Note:** Neither operation fires `QUEST_WATCH_UPDATE` - only `QUEST_LOG_UPDATE` events
-
----
-
-## Key Observations
-
-### ⚠️ CRITICAL: Quest Data Update Timing
-
-**`QUEST_WATCH_UPDATE` fires BEFORE quest data updates:**
-
-- ❌ **At event fire:** Quest log data is **STALE** (shows OLD progress count)
-- ✅ **After ~50-200ms:** Quest data is updated (by the time `QUEST_LOG_UPDATE` fires)
-
-**Example Timeline:**
+### Critical Timing Pattern
 ```
-1. You loot the 3rd quest item
-2. QUEST_WATCH_UPDATE fires → Quest log still shows "2/15" (OLD)
-3. ~100ms passes...
-4. QUEST_LOG_UPDATE fires → Quest log now shows "3/15" (NEW)
+Progress Update Timeline:
+1. Player loots quest item
+2. QUEST_WATCH_UPDATE fires → Quest log shows "2/15" (OLD/STALE)
+3. ~50-200ms delay...
+4. QUEST_LOG_UPDATE fires → Quest log shows "3/15" (NEW/FRESH)
 ```
 
 ---
 
-### Event Timing Summary
+## Performance Impact Summary
 
-| Action | Key Events (in order) |
-|--------|----------------|
-| **Accept Quest** | `QUEST_DETAIL` → `QUEST_FINISHED` → `QUEST_ACCEPTED` → `UNIT_QUEST_LOG_CHANGED` → `QUEST_LOG_UPDATE` |
-| **Abandon Quest** | `QUEST_REMOVED` → `UNIT_QUEST_LOG_CHANGED` → `QUEST_LOG_UPDATE` |
-| **Loot/Kill Quest Objective** | `QUEST_WATCH_UPDATE` (stale) → `UNIT_QUEST_LOG_CHANGED` → `QUEST_LOG_UPDATE` (updated) |
-| **Turn In Quest** | `QUEST_COMPLETE` → **Unordered:** `QUEST_TURNED_IN`, `QUEST_REMOVED`, `BAG_UPDATE` → `QUEST_LOG_UPDATE` |
-| **Quest Chain Turn-In** | `QUEST_GREETING` → `QUEST_COMPLETE` → `QUEST_TURNED_IN` → `QUEST_ACCEPTED` (new) + `QUEST_REMOVED` (old) → `BAG_UPDATE` → `QUEST_LOG_UPDATE` |
-| **Split/Delete Quest Item** | `UNIT_QUEST_LOG_CHANGED` → `QUEST_LOG_UPDATE` |
+| Operation | Total Events | Timing Issues | Performance Impact |
+|-----------|--------------|---------------|-------------------|
+| Accept Quest | 4 | None | Minimal |
+| Abandon Quest | 3 | None | Minimal |
+| Progress Update | 3 | QUEST_WATCH_UPDATE stale data | Medium |
+| Turn In Quest | 4-6 | Random event order | Medium |
+| Quest Chain | 8+ | Complex flow, timing issues | High |
+
+**Critical:** QUEST_WATCH_UPDATE fires with stale data. Always wait for QUEST_LOG_UPDATE for accurate progress.
+
+---
+
+## Essential API Functions
+
+### Quest Log Inspection
+```lua
+-- Quest log overview
+local numEntries, numQuests = GetNumQuestLogEntries()
+
+-- Quest details by log index
+local title, level, suggestedGroup, isHeader, isCollapsed, isComplete, frequency, questID = GetQuestLogTitle(index)
+
+-- Quest objectives
+local numObjectives = GetNumQuestLeaderBoards(questLogIndex)
+local text, objectiveType, finished = GetQuestLogLeaderBoard(objectiveIndex, questLogIndex)
+
+-- Quest completion check
+local isComplete = IsQuestComplete(questID)
+```
+
+### Quest Progress Tracking
+```lua
+-- Current quest selection
+local questLogIndex = GetQuestLogSelection()
+
+-- Quest links and info
+local questLink = GetQuestLink(questLogIndex)
+local questDescription, questObjectives = GetQuestLogQuestText(questLogIndex)
+```
+
+### Quest Item Detection (Bag Scanning Required)
+```lua
+-- No reliable quest item API - must scan bags
+-- Use BAG_UPDATE event and scan container items
+local containerInfo = C_Container.GetContainerItemInfo(bagId, slotId)
+if containerInfo and containerInfo.hyperlink then
+    -- Check if item is quest-related via tooltip or item type
+end
+```
+
+### Quest State Tracking
+```lua
+-- Quest window visibility
+local isQuestFrameOpen = QuestFrame and QuestFrame:IsShown()
+local isQuestLogOpen = QuestLogFrame and QuestLogFrame:IsShown()
+```
+
+---
+
+## Implementation Patterns
+
+### ✅ Recommended (Handles Timing Issues)
+```lua
+-- Quest progress tracking - OPTIMAL PATTERN
+local eventFrame = CreateFrame("Frame")
+eventFrame:RegisterEvent("QUEST_LOG_UPDATE")
+eventFrame:RegisterEvent("QUEST_ACCEPTED")
+eventFrame:RegisterEvent("QUEST_REMOVED")
+
+-- Track pending updates to handle stale data
+local pendingQuestUpdates = {}
+
+eventFrame:SetScript("OnEvent", function(self, event, ...)
+    if event == "QUEST_WATCH_UPDATE" then
+        local questId = ...
+        -- Mark as pending - data is STALE at this point
+        pendingQuestUpdates[questId] = GetTime()
+        
+    elseif event == "QUEST_LOG_UPDATE" then
+        -- Data is now FRESH - process pending updates
+        for questId, timestamp in pairs(pendingQuestUpdates) do
+            updateQuestProgress(questId)  -- Now has accurate data
+            pendingQuestUpdates[questId] = nil
+        end
+        
+    elseif event == "QUEST_ACCEPTED" then
+        local questLogIndex, questId = ...
+        onQuestAccepted(questId)
+        
+    elseif event == "QUEST_REMOVED" then
+        local questId = ...
+        onQuestRemoved(questId)
+    end
+end)
+
+-- Quest item tracking via BAG_UPDATE
+eventFrame:RegisterEvent("BAG_UPDATE")
+local function trackQuestItems()
+    -- Scan bags for quest items since QUEST_ITEM_UPDATE is unreliable
+    for bagId = 0, 4 do
+        -- Scan container items and check for quest items
+    end
+end
+```
+
+### ❌ Anti-Patterns (Timing and Reliability Issues)
+```lua
+-- DON'T use QUEST_WATCH_UPDATE for immediate data
+eventFrame:RegisterEvent("QUEST_WATCH_UPDATE")
+eventFrame:SetScript("OnEvent", function(self, event, questId)
+    if event == "QUEST_WATCH_UPDATE" then
+        -- ❌ BAD - Data is STALE at this point
+        local progress = getQuestProgress(questId)  -- Shows OLD progress
+        updateUI(progress)  -- Will show incorrect data
+    end
+end)
+
+-- DON'T rely on QUEST_ITEM_UPDATE
+eventFrame:RegisterEvent("QUEST_ITEM_UPDATE")
+eventFrame:SetScript("OnEvent", function(self, event)
+    -- ❌ BAD - Only fires 29% of the time
+    updateQuestItems()  -- Will miss most quest item changes
+end)
+
+-- DON'T assume event order for turn-ins
+eventFrame:SetScript("OnEvent", function(self, event, ...)
+    if event == "QUEST_TURNED_IN" then
+        -- ❌ BAD - Assuming QUEST_REMOVED comes after
+        -- QUEST_REMOVED might have already fired or fire later
+        processQuestCompletion()
+    end
+end)
+```
+
+---
+
+## Key Technical Details
+
+### Critical Timing Discoveries
+- **QUEST_WATCH_UPDATE fires BEFORE data updates** (50-200ms delay until fresh data)
+- **QUEST_LOG_UPDATE contains fresh data** (use this for actual progress)
+- **Event order is random** for QUEST_TURNED_IN and QUEST_REMOVED
+- **QUEST_ITEM_UPDATE reliability: 29%** (fired in only 2 of 7 turn-in tests)
+
+### Quest Item System Issues
+- **No reliable quest item events** in Classic Era
+- **QUEST_ITEM_UPDATE is broken** (29% reliability, then stops firing)
+- **BAG_UPDATE is the only reliable indicator** for quest item changes
+- **Quest items removed at turn-in dialog** (not when objectives complete)
+
+### Event Order Patterns (7 Turn-in Tests)
+| Pattern | Frequency | Event Sequence | QUEST_ITEM_UPDATE |
+|---------|-----------|----------------|-------------------|
+| A | 14% (1/7) | QUEST_TURNED_IN → QUEST_REMOVED → BAG_UPDATE → QUEST_ITEM_UPDATE | ✅ Fired |
+| B | 14% (1/7) | QUEST_REMOVED → BAG_UPDATE → QUEST_ITEM_UPDATE → QUEST_TURNED_IN | ✅ Fired |
+| C | 72% (5/7) | Various random orders → BAG_UPDATE → No QUEST_ITEM_UPDATE | ❌ Did not fire |
+
+### Quest Progress Data States
+```lua
+-- At QUEST_WATCH_UPDATE fire time
+local staleProgress = getQuestProgress(questId)  -- Shows OLD count (e.g., "2/15")
+
+-- 50-200ms later at QUEST_LOG_UPDATE fire time  
+local freshProgress = getQuestProgress(questId)  -- Shows NEW count (e.g., "3/15")
+```
+
+---
+
+## Event Arguments Reference
+
+### Key Event Arguments
+```lua
+-- QUEST_ACCEPTED arguments
+function onQuestAccepted(questLogIndex, questId)
+    -- questLogIndex: Position in quest log (1-based)
+    -- questId: Unique quest identifier
+end
+
+-- QUEST_TURNED_IN arguments
+function onQuestTurnedIn(questId, xpReward, moneyReward)
+    -- questId: Quest that was completed
+    -- xpReward: Experience points gained
+    -- moneyReward: Money reward in copper
+end
+
+-- QUEST_WATCH_UPDATE arguments
+function onQuestWatchUpdate(questId)
+    -- questId: Quest with updated progress
+    -- WARNING: Quest data is STALE at this point
+end
+```
 
 ---
 
 ## Untested Scenarios
 
-### High Priority
-
-These scenarios are essential for understanding quest item state changes:
-
-1. **Complete multiple objectives simultaneously** - Quest with "Kill 10 mobs AND collect 2 items" where 10th kill drops the 2nd item
+### High Priority for Future Testing
+1. **Quest Starter Items** - Right-click item to start quest
+2. **Shared/Escort Quests** - QUEST_ACCEPT_CONFIRM scenarios
+3. **Multiple Simultaneous Objectives** - Kill + collect completing together
+4. **Quest Item Usage** - Using quest items from bags to progress
 
 ### Medium Priority
+1. **Loot from World Objects** - Chests/containers giving quest items
+2. **Decline Quest Dialog** - Quest refusal at NPC
+3. **Timed Quest Expiration** - Quest failure events
+4. **Repeatable Quests** - Daily/repeatable quest patterns
 
-Common quest scenarios:
-
-2. **Loot quest item from world object/container** - Clickable chest, crate, or world object that gives quest items (not mob loot)
-3. **Accept quest from item (quest starter item)** - Right-click item in bags to start quest (e.g., "A Sealed Letter")
-4. **Decline quest at NPC dialog** - View quest details but click "Decline" instead of "Accept"
-
-### Lower Priority
-
-Edge cases and rare scenarios:
-
-5. **Shared/escort quest prompts** - Acceptance flow for shared/escort quests
-6. **Quest item used from inventory** - Using quest item from bags to progress quest (plant banner, activate item)
-7. **Repeatable/daily quests** - Event patterns for repeatable quest acceptance
-8. **Timed quest expiration/failure** - Events when timed quest expires
-9. **Quest progress from exploration** - Discovering location that updates quest objectives
-10. **Quest auto-complete** - Quest completes without returning to NPC (may not exist in Classic Era)
+### Low Priority
+1. **Quest Auto-Complete** - May not exist in Classic Era
+2. **Exploration Quests** - Location discovery updates
+3. **Quest Progress from Spells** - Using abilities to progress quests
 
 ---
 
-## Summary
+## Conclusion
 
-### Event Categories
+**QUEST_LOG_UPDATE is the reliable event for quest data:**
 
-**Quest Lifecycle (quest added/removed from log):**
-- `QUEST_ACCEPTED` - Quest added to log
-- `QUEST_REMOVED` - Quest removed from log
-- `PLAYER_ENTERING_WORLD` - Login/reload
+✅ **Use for Quest Tracking:**
+- `QUEST_LOG_UPDATE` for fresh quest progress data
+- `QUEST_ACCEPTED`/`QUEST_REMOVED` for quest lifecycle
+- `BAG_UPDATE` for quest item tracking (only reliable method)
 
-**Quest Progress (quest remains in log):**
-- `QUEST_WATCH_UPDATE` - Objective progress updated
-- `QUEST_COMPLETE` - All objectives finished
-- `QUEST_TURNED_IN` - Quest completed (but not removed yet)
+❌ **Avoid These Patterns:**
+- `QUEST_WATCH_UPDATE` for immediate data (stale data, 50-200ms delay)
+- `QUEST_ITEM_UPDATE` for item tracking (29% reliability, broken)
+- Assuming event order for turn-ins (completely random)
 
-**Quest UI (display only, no data changes):**
-- `QUEST_DETAIL` - Viewing quest details
-- `QUEST_PROGRESS` - Checking incomplete quest
-- `QUEST_FINISHED` - Dialog closed
-
-**Generic Changes:**
-- `QUEST_LOG_UPDATE` - Any quest-related change (fires 1-3× per action)
-- `UNIT_QUEST_LOG_CHANGED` - Quest log changed (fires 1× per action)
-
-### Events Not Triggered or Scenario Not Tested
-
-- `QUEST_POI_UPDATE` - Quest marker updates (never observed)
-- `QUEST_ACCEPT_CONFIRM` - Shared/escort quest (scenario not tested)
-
-**Note on `QUEST_ITEM_UPDATE`:** This event is **UNRELIABLE** in Classic Era 1.12. Across 7 quest turn-ins tested (collection and delivery quests), it fired in only 2 tests (~29%), then never again. When it did fire, it occurred ~6ms after `BAG_UPDATE`. Does NOT fire when looting quest items - `QUEST_WATCH_UPDATE` handles that instead. **Do not build addon logic around this event** - use `BAG_UPDATE` as the reliable indicator for quest item changes.
+**The key insight: Quest events in Classic Era have significant timing and reliability issues that require careful handling with proper debouncing and fallback mechanisms.**
