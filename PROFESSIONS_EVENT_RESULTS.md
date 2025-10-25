@@ -48,28 +48,27 @@
 ### Hooks That Fired During Testing
 | Hook | Fired? | Frequency | Notes |
 |------|--------|-----------|-------|
-| `BuyTrainerService` | ✅ | 1× per recipe learned | Shows cost immediately |
-| `CloseTradeSkill` | ✅ | 1× per window close | Simultaneous with event |
-| `CloseTrainer` | ✅ | 1× per trainer close | Simultaneous with event |
+| `ExpandTradeSkillSubClass` | ✅ | 1× per expand | **Recipe category expansion working** |
+| `CollapseTradeSkillSubClass` | ✅ | 1× per collapse | **Recipe category collapse working** |
+| `SelectTradeSkill` | ✅ | 1× per selection | Recipe selection (no visible output) |
+| `CloseTradeSkill` | ✅ | 2× per close | Duplicate close calls (normal behavior) |
 
 ### Hooks That Did NOT Fire
 | Hook | Status | Reason |
 |------|--------|--------|
-| `CastTradeSkill` | ❌ | Hook did not trigger during crafting |
-| `ExpandTradeSkillSubClass` | ❌ | No recipe categories expanded |
-| `CollapseTradeSkillSubClass` | ❌ | No recipe categories collapsed |
+| `CastTradeSkill` | ❌ | Function not available in Classic Era |
+| `DoTradeSkill` | ❌ | No crafting performed (missing materials) |
 
 ### Tests Performed Headlines
 1. **Login/Reload** - Event initialization patterns
-2. **Open Cooking Window** - 142/150 skill, 23 recipes available
-3. **Close Cooking Window** - Event cleanup and duplicate detection
-4. **Open Trainer** - 3 services available, progressive loading
-5. **Learn Recipe** - Goblin Deviled Clams for 270 copper
-6. **Close Trainer** - Clean shutdown
-7. **Craft Without Skill-Up** - Cooked Crab Claw (2.89s duration)
-8. **Craft With Skill-Up** - Crab Cake (2.92s, 140→141 skill increase)
-9. **Interrupt Crafting** - Crab Cake interrupted at 2.2s
-10. **Buy Reagents** - Mild Spices purchase while profession window open
+2. **Open Cooking Window** - Skill 11/75, 5 recipes available
+3. **Recipe Category Management** - Expand/collapse functionality tested
+4. **Recipe Selection** - SelectTradeSkill function working
+5. **Close Cooking Window** - Duplicate close events detected
+6. **Hook Testing** - All available tradeskill hooks tested
+7. **Recipe Analysis** - All orange difficulty (guaranteed skill-up)
+8. **Material Requirements** - All recipes missing materials (x0 available)
+9. **Cross-System Integration** - Perfect UI state tracking
 
 ---
 

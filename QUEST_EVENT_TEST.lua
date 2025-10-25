@@ -569,4 +569,110 @@ if GetQuestReward then
 	end)
 end
 
+-- Test functions for quest hooks
+local function testQuestHooks()
+	print("|cff00ff00=== TESTING QUEST HOOKS ===|r")
+	
+	-- Test QuestLog_Update hook
+	print("|cffffaa00Testing QuestLog_Update hook...|r")
+	if QuestLog_Update then
+		QuestLog_Update()
+	else
+		print("|cffff0000QuestLog_Update function not available|r")
+	end
+	
+	-- Test SelectQuestLogEntry hook
+	print("|cffffaa00Testing SelectQuestLogEntry hook...|r")
+	if SelectQuestLogEntry then
+		SelectQuestLogEntry(1)
+	else
+		print("|cffff0000SelectQuestLogEntry function not available|r")
+	end
+	
+	-- Test QuestFrameProgressItems_Update hook
+	print("|cffffaa00Testing QuestFrameProgressItems_Update hook...|r")
+	if QuestFrameProgressItems_Update then
+		QuestFrameProgressItems_Update()
+	else
+		print("|cffff0000QuestFrameProgressItems_Update function not available|r")
+	end
+	
+	-- Test quest interaction hooks (only if quest giver is available)
+	if QuestFrame and QuestFrame:IsShown() then
+		print("|cffffaa00Testing quest interaction hooks...|r")
+		
+		-- Test AcceptQuest hook (if there's a quest to accept)
+		if QuestFrameAcceptButton and QuestFrameAcceptButton:IsShown() then
+			print("|cffffaa00Testing AcceptQuest hook...|r")
+			if AcceptQuest then
+				AcceptQuest()
+			else
+				print("|cffff0000AcceptQuest function not available|r")
+			end
+		end
+		
+		-- Test DeclineQuest hook
+		print("|cffffaa00Testing DeclineQuest hook...|r")
+		if DeclineQuest then
+			DeclineQuest()
+		else
+			print("|cffff0000DeclineQuest function not available|r")
+		end
+		
+		-- Test CompleteQuest hook (if there's a quest to complete)
+		if QuestFrameCompleteButton and QuestFrameCompleteButton:IsShown() then
+			print("|cffffaa00Testing CompleteQuest hook...|r")
+			if CompleteQuest then
+				CompleteQuest()
+			else
+				print("|cffff0000CompleteQuest function not available|r")
+			end
+		end
+		
+		-- Test GetQuestReward hook (if there are rewards to choose from)
+		local numRewards = GetNumQuestChoices and GetNumQuestChoices() or 0
+		if numRewards > 0 then
+			print("|cffffaa00Testing GetQuestReward hook with first reward...|r")
+			if GetQuestReward then
+				GetQuestReward(1)
+			else
+				print("|cffff0000GetQuestReward function not available|r")
+			end
+		else
+			print("|cffff6600Cannot test GetQuestReward - no reward choices available|r")
+		end
+		
+	else
+		print("|cffff6600Cannot test quest interaction hooks - no quest giver window open|r")
+		print("|cffff6600Talk to a quest giver first, then run /testquesthooks|r")
+	end
+	
+	-- Test AbandonQuest hook (be careful with this one)
+	local numQuests = _GetNumQuestLogEntries and _GetNumQuestLogEntries() or 0
+	if numQuests > 0 then
+		print("|cffffaa00Testing AbandonQuest hook (WARNING: will abandon a quest)...|r")
+		-- Only abandon if we have a test quest or are sure it's safe
+		local questTitle = GetQuestLogTitle(1)
+		if questTitle and questTitle:lower():find("test") then
+			if AbandonQuest then
+				SelectQuestLogEntry(1)
+				AbandonQuest()
+			else
+				print("|cffff0000AbandonQuest function not available|r")
+			end
+		else
+			print("|cffff6600Skipping AbandonQuest - no test quest found|r")
+		end
+	else
+		print("|cffff6600Cannot test AbandonQuest - no quests in log|r")
+	end
+	
+	print("|cff00ff00=== QUEST HOOK TESTS COMPLETE ===|r")
+end
+
+-- Slash command to test quest hooks
+SLASH_TESTQUESTHOOKS1 = "/testquesthooks"
+SlashCmdList["TESTQUESTHOOKS"] = testQuestHooks
+
 print("|cff00ff00Quest investigation ready - events will print to chat|r")
+print("|cff00ff00Use /testquesthooks to test quest function hooks|r")

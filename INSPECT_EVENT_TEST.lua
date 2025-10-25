@@ -469,7 +469,64 @@ SlashCmdList["INSPECTSTATE"] = function()
 	print("|cff00ff00=== END INSPECT STATE ===|r")
 end
 
+-- Test functions for inspect hooks
+local function testInspectHooks()
+	print("|cff00ff00=== TESTING INSPECT HOOKS ===|r")
+	
+	-- Test InspectUnit hook
+	if UnitExists("target") and UnitIsPlayer("target") then
+		print("|cffffaa00Testing InspectUnit hook on target...|r")
+		if InspectUnit then
+			InspectUnit("target")
+		else
+			print("|cffff0000InspectUnit function not available|r")
+		end
+		
+		-- Test ClearInspectPlayer hook
+		print("|cffffaa00Testing ClearInspectPlayer hook...|r")
+		if ClearInspectPlayer then
+			ClearInspectPlayer()
+		else
+			print("|cffff0000ClearInspectPlayer function not available|r")
+		end
+	else
+		print("|cffff6600Cannot test InspectUnit - no player target|r")
+		print("|cffff6600Target a player first, then run /testinspecthooks|r")
+	end
+	
+	-- Test InspectFrame_Show hook
+	print("|cffffaa00Testing InspectFrame_Show hook...|r")
+	if InspectFrame_Show then
+		InspectFrame_Show("target")
+	else
+		print("|cffff0000InspectFrame_Show function not available|r")
+	end
+	
+	-- Test InspectFrame_Hide hook
+	print("|cffffaa00Testing InspectFrame_Hide hook...|r")
+	if InspectFrame_Hide then
+		InspectFrame_Hide()
+	else
+		print("|cffff0000InspectFrame_Hide function not available|r")
+	end
+	
+	-- Test InspectPaperDollFrame_SetLevel hook
+	print("|cffffaa00Testing InspectPaperDollFrame_SetLevel hook...|r")
+	if InspectPaperDollFrame_SetLevel then
+		InspectPaperDollFrame_SetLevel()
+	else
+		print("|cffff0000InspectPaperDollFrame_SetLevel function not available|r")
+	end
+	
+	print("|cff00ff00=== INSPECT HOOK TESTS COMPLETE ===|r")
+end
+
+-- Slash command to test inspect hooks
+SLASH_TESTINSPECTHOOKS1 = "/testinspecthooks"
+SlashCmdList["TESTINSPECTHOOKS"] = testInspectHooks
+
 print("|cff00ff00Inspect investigation ready - events will print to chat|r")
 print("|cff00ff00Target players and use inspect (default: right-click → Inspect) to test|r")
 print("|cff00ff00Use /inspectstate to see current inspect state|r")
+print("|cff00ff00Use /testinspecthooks to test inspect function hooks|r")
 print("|cff00ff00Classic Era (1.15) compatible version loaded|r")

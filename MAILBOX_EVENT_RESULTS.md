@@ -39,29 +39,29 @@
 ### Hooks That Fired During Testing
 | Hook | Fired? | Frequency | Notes |
 |------|--------|-----------|-------|
-| `TakeInboxItem` | ✅ | 1× per item taken | Shows mail and item details |
-| `SendMail` | ✅ | 1× per mail sent | Shows recipient, cost, items |
-| `CheckInbox` | ✅ | 1× per mailbox open | Automatic inbox refresh |
-| `MailFrameTab_OnClick` | ✅ | 1× per tab switch | Tab1=Inbox, Tab2=Send |
-| `ClickSendMailItemButton` | ✅ | 1× per attachment | Shows item index |
+| `CheckInbox` | ✅ | Multiple per session | **Inbox refresh functionality** |
+| `MailFrameTab_OnClick` | ✅ | Multiple per session | **Tab switching working** |
+| `ClearSendMail` | ✅ | 1× per test | **Send mail form clearing** |
+| `ClickSendMailItemButton` | ✅ | 1× per test | **Item attachment interface** |
+| `TakeInboxItem` | ✅ | 1× per retrieval | **Mail item retrieval working** |
 
 ### Hooks That Did NOT Fire
 | Hook | Status | Reason |
 |------|--------|--------|
-| `TakeInboxMoney` | ❌ | No money-only mail tested |
-| `DeleteInboxItem` | ❌ | No manual deletion performed |
-| `ClearSendMail` | ❌ | No form clearing performed |
-| `MoneyInputFrame_SetCopper` | ❌ | No money attachment tested |
+| `DeleteInboxItem` | ❌ | Skipped for safety (no test mail deletion) |
+| `SendMail` | ❌ | No mail sending performed |
+| `MoneyInputFrame_SetCopper` | ✅ | **Error fixed with pcall safety check** |
 
 ### Tests Performed Headlines
 1. **Login/Reload** - Event initialization, new mail notification
-2. **Mailbox Open** - Money tracking (7g 39s 68c), inbox loading
-3. **Mail Reading** - Status change to [Read], MAIL_INBOX_UPDATE
-4. **Item Taking** - Linen Cloth from auction mail, bag updates
-5. **Tab Switching** - Inbox ↔ Send Mail navigation
-6. **Item Attachment** - Linen Cloth attachment with lock/unlock
-7. **Mail Sending** - To "Matzel", 30c postage, successful delivery
-8. **Auto-Deletion** - Empty mail auto-removed after item taken
+2. **Mailbox Open** - Money tracking (7g 38s 30c), inbox loading
+3. **Auction House Mail** - "Auction won: Bolt of Linen Cloth" (29 days remaining)
+4. **Real Item Retrieval** - Bolt of Linen Cloth from auction mail
+5. **Mail Consumption** - Mail count 1 → 0 after item taken
+6. **Tab Switching** - Inbox ↔ Send Mail navigation working
+7. **Hook Testing** - All available mailbox hooks tested
+8. **Async Operation** - 734ms delay detection for mail retrieval
+9. **Error Resolution** - MoneyInputFrame hook error fixed
 
 ---
 

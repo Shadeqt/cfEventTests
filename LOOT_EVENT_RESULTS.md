@@ -41,25 +41,26 @@
 ### Hooks That Fired During Testing
 | Hook | Fired? | Frequency | Notes |
 |------|--------|-----------|-------|
-| `LootSlot` | ✅ | 1× per slot | Fires before LOOT_SLOT_CLEARED |
-| `CloseLoot` | ✅ | 1× per close | Simultaneous with LOOT_CLOSED |
-| `LootButton_OnClick` | ✅ | 1× per click | Manual loot clicks |
-| `LootFrame_Update` | ✅ | Multiple per session | UI refresh events |
+| `LootFrame_Update` | ✅ | 1× per loot window | **Loot window refresh** |
+| `SetLootThreshold` | ✅ | 2× per test | **Loot threshold changes working** |
+| `SetOptOutOfLoot` | ✅ | 2× per test | **Loot eligibility toggle working** |
+| `CloseLoot` | ✅ | 2× per close | Loot window closing |
 
 ### Hooks That Did NOT Fire
 | Hook | Status | Reason |
 |------|--------|--------|
-| `ConfirmLootSlot` | ❌ | No BoP confirmation needed |
-| `SetLootThreshold` | ❌ | No threshold changes performed |
-| `SetOptOutOfLoot` | ❌ | No opt-out changes performed |
+| `SetLootMethod` | ❌ | Function not available in Classic Era |
+| `LootSlot` | ❌ | No loot items available to test |
+| `RollOnLoot` | ❌ | No active loot rolls (solo player) |
 
 ### Tests Performed Headlines
 1. **Login/Reload** - Event initialization, loot method detection
-2. **Auto-Loot (3 items)** - Ragged Young Wolf: Tough Wolf Meat, Ruined Pelt, Chipped Claw
-3. **Manual Loot Window** - Opening, viewing items, closing without taking
-4. **Single Manual Loot** - Taking one item via click
-5. **Loot Source Detection** - Unit kills vs object/chest identification
-6. **Bag Arrival Timing** - Precise timing from loot to inventory
+2. **Real Combat Encounter** - Skeletal Soldier kill with spell casting sequence
+3. **Empty Loot Handling** - Corpse with no items (0 loot items)
+4. **Loot Window Operations** - Manual open/close with 2.01s duration
+5. **Loot Settings Testing** - SetLootThreshold and SetOptOutOfLoot functions
+6. **Combat Integration** - Complete spell casting to loot sequence
+7. **Classic Era Compatibility** - Function availability testing
 
 ---
 

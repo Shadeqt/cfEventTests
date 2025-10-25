@@ -507,4 +507,100 @@ if MerchantFrame_Update then
 	end)
 end
 
+-- Test functions for merchant hooks
+local function testMerchantHooks()
+	print("|cff00ff00=== TESTING MERCHANT HOOKS ===|r")
+	
+	if not (MerchantFrame and MerchantFrame:IsShown()) then
+		print("|cffff0000Cannot test merchant hooks - merchant window not open|r")
+		print("|cffff6600Talk to a merchant first, then run /testmercanthooks|r")
+		return
+	end
+	
+	-- Test MerchantFrame_UpdateMerchantInfo hook
+	print("|cffffaa00Testing MerchantFrame_UpdateMerchantInfo hook...|r")
+	if MerchantFrame_UpdateMerchantInfo then
+		MerchantFrame_UpdateMerchantInfo()
+	else
+		print("|cffff0000MerchantFrame_UpdateMerchantInfo function not available|r")
+	end
+	
+	-- Test MerchantFrame_UpdateBuybackInfo hook
+	print("|cffffaa00Testing MerchantFrame_UpdateBuybackInfo hook...|r")
+	if MerchantFrame_UpdateBuybackInfo then
+		MerchantFrame_UpdateBuybackInfo()
+	else
+		print("|cffff0000MerchantFrame_UpdateBuybackInfo function not available|r")
+	end
+	
+	-- Test ShowMerchantSellCursor hook
+	print("|cffffaa00Testing ShowMerchantSellCursor hook...|r")
+	if ShowMerchantSellCursor then
+		ShowMerchantSellCursor(1)
+	else
+		print("|cffff0000ShowMerchantSellCursor function not available|r")
+	end
+	
+	-- Test RepairAllItems hook (if merchant can repair)
+	if CanMerchantRepair and CanMerchantRepair() then
+		print("|cffffaa00Testing RepairAllItems hook...|r")
+		if RepairAllItems then
+			RepairAllItems(false) -- Don't use guild bank
+		else
+			print("|cffff0000RepairAllItems function not available|r")
+		end
+	else
+		print("|cffff6600Cannot test RepairAllItems - merchant cannot repair|r")
+	end
+	
+	-- Test BuyMerchantItem hook (buy first item if available and affordable)
+	local numItems = _GetMerchantNumItems and _GetMerchantNumItems() or 0
+	if numItems > 0 then
+		local name, texture, price, quantity, numAvailable, isUsable, extendedCost = _GetMerchantItemInfo(1)
+		if name and price then
+			local playerMoney = GetMoney and GetMoney() or 0
+			if playerMoney >= price then
+				print("|cffffaa00Testing BuyMerchantItem hook on " .. name .. "...|r")
+				if BuyMerchantItem then
+					BuyMerchantItem(1, 1)
+				else
+					print("|cffff0000BuyMerchantItem function not available|r")
+				end
+			else
+				print("|cffff6600Cannot test BuyMerchantItem - not enough money for " .. name .. "|r")
+			end
+		end
+	else
+		print("|cffff6600Cannot test BuyMerchantItem - no items for sale|r")
+	end
+	
+	-- Test BuybackItem hook (if there are buyback items)
+	local numBuybackItems = GetNumBuybackItems and GetNumBuybackItems() or 0
+	if numBuybackItems > 0 then
+		print("|cffffaa00Testing BuybackItem hook on first buyback item...|r")
+		if BuybackItem then
+			BuybackItem(1)
+		else
+			print("|cffff0000BuybackItem function not available|r")
+		end
+	else
+		print("|cffff6600Cannot test BuybackItem - no buyback items available|r")
+	end
+	
+	-- Test CloseMerchant hook
+	print("|cffffaa00Testing CloseMerchant hook...|r")
+	if CloseMerchant then
+		CloseMerchant()
+	else
+		print("|cffff0000CloseMerchant function not available|r")
+	end
+	
+	print("|cff00ff00=== MERCHANT HOOK TESTS COMPLETE ===|r")
+end
+
+-- Slash command to test merchant hooks
+SLASH_TESTMERCANTHOOKS1 = "/testmercanthooks"
+SlashCmdList["TESTMERCANTHOOKS"] = testMerchantHooks
+
 print("|cff00ff00Merchant investigation ready - events will print to chat|r")
+print("|cff00ff00Use /testmercanthooks to test merchant function hooks|r")

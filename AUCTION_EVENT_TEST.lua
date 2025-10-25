@@ -553,6 +553,84 @@ if AuctionFrameBuyout_OnClick then
 	end)
 end
 
+-- Test functions for auction house hooks
+local function testAuctionHooks()
+	print("|cff00ff00=== TESTING AUCTION HOUSE HOOKS ===|r")
+	
+	if not (AuctionFrame and AuctionFrame:IsShown()) then
+		print("|cffff0000Cannot test auction hooks - auction house not open|r")
+		print("|cffff6600Visit an auctioneer first, then run /testauctionhooks|r")
+		return
+	end
+	
+	-- Test QueryAuctionItems hook
+	print("|cffffaa00Testing QueryAuctionItems hook...|r")
+	if _QueryAuctionItems then
+		_QueryAuctionItems("", nil, nil, nil, nil, nil, 0, false, nil, false)
+	else
+		print("|cffff0000QueryAuctionItems function not available|r")
+	end
+	
+	-- Test ClickAuctionSellItemButton hook
+	print("|cffffaa00Testing ClickAuctionSellItemButton hook...|r")
+	if _ClickAuctionSellItemButton then
+		_ClickAuctionSellItemButton()
+	else
+		print("|cffff0000ClickAuctionSellItemButton function not available|r")
+	end
+	
+	-- Test tab switching hooks
+	if AuctionFrameTab_OnClick then
+		print("|cffffaa00Testing AuctionFrameTab_OnClick hook...|r")
+		-- Try to click browse tab
+		if AuctionFrameTab1 then
+			AuctionFrameTab_OnClick(AuctionFrameTab1)
+		end
+	end
+	
+	-- Test search hook
+	if AuctionFrameBrowse_Search then
+		print("|cffffaa00Testing AuctionFrameBrowse_Search hook...|r")
+		AuctionFrameBrowse_Search()
+	end
+	
+	-- Test auction operations (only if we have items/auctions)
+	local numBrowseItems = _GetNumAuctionItems and _GetNumAuctionItems("list") or 0
+	if numBrowseItems > 0 then
+		print("|cffffaa00Testing PlaceAuctionBid hook on first item...|r")
+		if _PlaceAuctionBid then
+			-- Get minimum bid for first item
+			local name, texture, count, quality, canUse, level, levelColHeader, minBid = _GetAuctionItemInfo("list", 1)
+			if minBid then
+				_PlaceAuctionBid("list", 1, minBid)
+			end
+		else
+			print("|cffff0000PlaceAuctionBid function not available|r")
+		end
+	else
+		print("|cffff6600Cannot test PlaceAuctionBid - no items in browse list|r")
+	end
+	
+	local numOwnedItems = _GetNumAuctionItems and _GetNumAuctionItems("owner") or 0
+	if numOwnedItems > 0 then
+		print("|cffffaa00Testing CancelAuction hook on first owned auction...|r")
+		if _CancelAuction then
+			_CancelAuction(1)
+		else
+			print("|cffff0000CancelAuction function not available|r")
+		end
+	else
+		print("|cffff6600Cannot test CancelAuction - no owned auctions|r")
+	end
+	
+	print("|cff00ff00=== AUCTION HOUSE HOOK TESTS COMPLETE ===|r")
+end
+
+-- Slash command to test auction house hooks
+SLASH_TESTAUCTIONHOOKS1 = "/testauctionhooks"
+SlashCmdList["TESTAUCTIONHOOKS"] = testAuctionHooks
+
 print("|cff00ff00Auction House investigation ready - events will print to chat|r")
 print("|cff00ff00Visit an auctioneer and perform searches, bids, and sales to test events|r")
+print("|cff00ff00Use /testauctionhooks to test auction house function hooks|r")
 print("|cff00ff00Classic Era (1.15) compatible version loaded|r")

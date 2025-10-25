@@ -989,7 +989,93 @@ SlashCmdList["LOOTSTATE"] = function()
 	print("|cff00ff00=== END LOOT STATE ===|r")
 end
 
+-- Test functions for loot hooks
+local function testLootHooks()
+	print("|cff00ff00=== TESTING LOOT HOOKS ===|r")
+	
+	-- Test loot method hooks
+	print("|cffffaa00Testing SetLootMethod hook...|r")
+	if SetLootMethod then
+		local currentMethod, currentThreshold = getLootMethodInfo()
+		-- Try to set the same method to trigger the hook
+		SetLootMethod(currentMethod or "freeforall", nil, currentThreshold or 2)
+	else
+		print("|cffff0000SetLootMethod function not available|r")
+	end
+	
+	-- Test loot threshold hook
+	print("|cffffaa00Testing SetLootThreshold hook...|r")
+	if SetLootThreshold then
+		local currentMethod, currentThreshold = getLootMethodInfo()
+		SetLootThreshold(currentThreshold or 2)
+	else
+		print("|cffff0000SetLootThreshold function not available|r")
+	end
+	
+	-- Test opt out hook
+	print("|cffffaa00Testing SetOptOutOfLoot hook...|r")
+	if SetOptOutOfLoot then
+		-- Toggle opt out status
+		local currentOptOut = GetOptOutOfLoot and GetOptOutOfLoot() or false
+		SetOptOutOfLoot(not currentOptOut)
+		-- Set it back
+		SetOptOutOfLoot(currentOptOut)
+	else
+		print("|cffff0000SetOptOutOfLoot function not available|r")
+	end
+	
+	-- Test loot window hooks (only if loot window is open)
+	if LootFrame and LootFrame:IsShown() then
+		local numLootItems = GetNumLootItems and GetNumLootItems() or 0
+		
+		if numLootItems > 0 then
+			print("|cffffaa00Testing LootSlot hook on first item...|r")
+			if LootSlot then
+				LootSlot(1)
+			else
+				print("|cffff0000LootSlot function not available|r")
+			end
+		else
+			print("|cffff6600Cannot test LootSlot - no loot items available|r")
+		end
+		
+		print("|cffffaa00Testing CloseLoot hook...|r")
+		if CloseLoot then
+			CloseLoot()
+		else
+			print("|cffff0000CloseLoot function not available|r")
+		end
+	else
+		print("|cffff6600Cannot test loot window hooks - loot window not open|r")
+		print("|cffff6600Kill a mob or open a chest first, then run /testloothooks|r")
+	end
+	
+	-- Test roll hooks (only if there are active rolls)
+	local hasActiveRolls = false
+	for rollID, rollInfo in pairs(activeLootRolls) do
+		hasActiveRolls = true
+		print("|cffffaa00Testing RollOnLoot hook on roll " .. rollID .. "...|r")
+		if RollOnLoot then
+			RollOnLoot(rollID, 0) -- Pass
+		else
+			print("|cffff0000RollOnLoot function not available|r")
+		end
+		break -- Only test one roll
+	end
+	
+	if not hasActiveRolls then
+		print("|cffff6600Cannot test RollOnLoot - no active loot rolls|r")
+	end
+	
+	print("|cff00ff00=== LOOT HOOK TESTS COMPLETE ===|r")
+end
+
+-- Slash command to test loot hooks
+SLASH_TESTLOOTHOOKS1 = "/testloothooks"
+SlashCmdList["TESTLOOTHOOKS"] = testLootHooks
+
 print("|cff00ff00Loot investigation ready - events will print to chat|r")
 print("|cff00ff00Kill mobs, open chests, and loot items to test events|r")
 print("|cff00ff00Use /lootstate to see current loot state|r")
+print("|cff00ff00Use /testloothooks to test loot function hooks|r")
 print("|cff00ff00Classic Era (1.15) compatible version loaded|r")

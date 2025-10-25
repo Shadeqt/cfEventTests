@@ -597,16 +597,129 @@ end
 -- Hook money input functions
 if MoneyInputFrame_SetCopper then
 	hooksecurefunc("MoneyInputFrame_SetCopper", function(frame, copper)
-		if frame and frame:GetParent() == SendMailFrame then
-			local currentTime = _GetTime()
-			local delta = currentTime - lastEventTime
-			print("|cffff9900[" .. string.format("%.2f", currentTime) .. "] (+" .. string.format("%.0fms", delta * 1000) .. ") [Mail Hook]|r MoneyInputFrame_SetCopper")
-			print("  |cffffaa00Amount:|r " .. formatMoney(copper or 0))
-			lastEventTime = currentTime
+		-- Only log if this is actually a mail-related money frame
+		-- Use pcall to safely check parent without errors
+		if frame then
+			local success, parent = pcall(function() return frame:GetParent() end)
+			if success and parent == SendMailFrame then
+				local currentTime = _GetTime()
+				local delta = currentTime - lastEventTime
+				print("|cffff9900[" .. string.format("%.2f", currentTime) .. "] (+" .. string.format("%.0fms", delta * 1000) .. ") [Mail Hook]|r MoneyInputFrame_SetCopper")
+				print("  |cffffaa00Amount:|r " .. formatMoney(copper or 0))
+				lastEventTime = currentTime
+			end
 		end
 	end)
 end
 
+-- Test functions for mailbox hooks
+local function testMailboxHooks()
+	print("|cff00ff00=== TESTING MAILBOX HOOKS ===|r")
+	
+	if not (MailFrame and MailFrame:IsShown()) then
+		print("|cffff0000Cannot test mailbox hooks - mailbox not open|r")
+		print("|cffff6600Visit a mailbox first, then run /testmailboxhooks|r")
+		return
+	end
+	
+	-- Test CheckInbox hook
+	print("|cffffaa00Testing CheckInbox hook...|r")
+	if _CheckInbox then
+		_CheckInbox()
+	else
+		print("|cffff0000CheckInbox function not available|r")
+	end
+	
+	-- Test ClearSendMail hook
+	print("|cffffaa00Testing ClearSendMail hook...|r")
+	if _ClearSendMail then
+		_ClearSendMail()
+	else
+		print("|cffff0000ClearSendMail function not available|r")
+	end
+	
+	-- Test ClickSendMailItemButton hook
+	print("|cffffaa00Testing ClickSendMailItemButton hook...|r")
+	if ClickSendMailItemButton then
+		ClickSendMailItemButton(1, false)
+	else
+		print("|cffff0000ClickSendMailItemButton function not available|r")
+	end
+	
+	-- Test tab switching hook
+	if MailFrameTab_OnClick then
+		print("|cffffaa00Testing MailFrameTab_OnClick hook...|r")
+		-- Try to click send tab
+		if MailFrameTab2 then
+			MailFrameTab_OnClick(MailFrameTab2)
+		end
+		-- Switch back to inbox tab
+		if MailFrameTab1 then
+			MailFrameTab_OnClick(MailFrameTab1)
+		end
+	end
+	
+	-- Test inbox operations (only if we have mail)
+	local numItems = _GetInboxNumItems and _GetInboxNumItems() or 0
+	if numItems > 0 then
+		print("|cffffaa00Testing inbox hooks on first mail...|r")
+		
+		-- Check if first mail has money
+		local packageIcon, stationeryIcon, sender, subject, money, CODAmount, daysLeft, hasItem, wasRead, wasReturned, textCreated, canReply, isGM = _GetInboxHeaderInfo(1)
+		
+		if money and money > 0 then
+			print("|cffffaa00Testing TakeInboxMoney hook...|r")
+			if _TakeInboxMoney then
+				_TakeInboxMoney(1)
+			else
+				print("|cffff0000TakeInboxMoney function not available|r")
+			end
+		end
+		
+		if hasItem then
+			print("|cffffaa00Testing TakeInboxItem hook...|r")
+			if _TakeInboxItem then
+				_TakeInboxItem(1, 1)
+			else
+				print("|cffff0000TakeInboxItem function not available|r")
+			end
+		end
+		
+		-- Test delete (be careful with this one)
+		print("|cffffaa00Testing DeleteInboxItem hook (WARNING: will delete mail)...|r")
+		if _DeleteInboxItem then
+			-- Only delete if it's a test mail or empty mail
+			if subject and (subject:lower():find("test") or subject == "") then
+				_DeleteInboxItem(1)
+			else
+				print("|cffff6600Skipping delete - mail doesn't appear to be a test mail|r")
+			end
+		else
+			print("|cffff0000DeleteInboxItem function not available|r")
+		end
+	else
+		print("|cffff6600Cannot test inbox hooks - no mail in inbox|r")
+	end
+	
+	-- Test SendMail hook (send a test mail to yourself)
+	print("|cffffaa00Testing SendMail hook (sending test mail to self)...|r")
+	if _SendMail then
+		local playerName = UnitName("player")
+		if playerName then
+			_SendMail(playerName, "Hook Test", "This is a test mail from the mailbox hook test.")
+		end
+	else
+		print("|cffff0000SendMail function not available|r")
+	end
+	
+	print("|cff00ff00=== MAILBOX HOOK TESTS COMPLETE ===|r")
+end
+
+-- Slash command to test mailbox hooks
+SLASH_TESTMAILBOXHOOKS1 = "/testmailboxhooks"
+SlashCmdList["TESTMAILBOXHOOKS"] = testMailboxHooks
+
 print("|cff00ff00Mailbox investigation ready - events will print to chat|r")
 print("|cff00ff00Visit a mailbox and send/receive mail to test events|r")
+print("|cff00ff00Use /testmailboxhooks to test mailbox function hooks|r")
 print("|cff00ff00Classic Era (1.15) compatible version loaded|r")

@@ -42,22 +42,22 @@
 ### Hooks That Fired During Testing
 | Hook | Fired? | Frequency | Notes |
 |------|--------|-----------|-------|
-| `AcceptQuest` | ✅ | 1× per accept | Clean |
-| `AbandonQuest` | ✅ | 1× per abandon | Clean |
-| `CompleteQuest` | ✅ | 1× per completion | Clean |
-| `GetQuestReward` | ✅ | 1× per reward choice | Clean |
-| `QuestLog_Update` | ✅ | Multiple per action | UI updates |
-| `QuestInfo_Display` | ✅ | 1× per dialog | Quest info shown |
-| `QuestFrameProgressItems_Update` | ✅ | 1× per progress check | Progress dialog |
+| `AcceptQuest` | ✅ | 1× per accept | **CONFIRMED** - Fires on quest acceptance |
+| `DeclineQuest` | ✅ | 1× per decline | **CONFIRMED** - Fires on quest decline |
+| `CompleteQuest` | ✅ | 1× per completion | **CONFIRMED** - Fires on quest completion |
+| `GetQuestReward` | ❌ | Not tested | No reward choices available during testing |
+| `QuestLog_Update` | ✅ | **Very frequent** | **HIGHLY ACTIVE** - Fires on almost any quest action |
+| `QuestInfo_Display` | ✅ | 1× per dialog | **CONFIRMED** - Quest info display |
+| `QuestFrameProgressItems_Update` | ✅ | Multiple per session | **CONFIRMED** - Progress dialog updates |
 
 ### Tests Performed Headlines
 1. **Login/Reload** - QUEST_LOG_UPDATE (3×) initialization
-2. **Accept Quest** - QUEST_DETAIL → QUEST_ACCEPTED flow
-3. **Abandon Quest** - QUEST_REMOVED → cleanup sequence
-4. **Progress Updates** - Loot items, kill mobs (QUEST_WATCH_UPDATE timing issues)
-5. **Turn In Quest** - QUEST_COMPLETE → random event order
-6. **Quest Chains** - QUEST_GREETING → automatic new quest
-7. **Quest Item Operations** - Split stack, delete item patterns
+2. **Accept Quest** - QUEST_DETAIL → QUEST_ACCEPTED flow (**"Oh Brother..." quest accepted**)
+3. **Quest Dialog Interactions** - Multiple QUEST_GREETING and QUEST_FINISHED cycles
+4. **Hook Testing** - Comprehensive `/testquesthooks` command validation
+5. **Quest Progress Checking** - QUEST_PROGRESS events with incomplete quests
+6. **Real NPC Interactions** - Actual quest giver conversations and state changes
+7. **Quest Log Management** - QuestLog_Update hook firing frequently during interactions
 
 ---
 

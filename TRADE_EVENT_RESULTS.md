@@ -26,7 +26,7 @@
 | Event | Status | Reason |
 |-------|--------|--------|
 | `TRADE_UPDATE` | ❌ | May require both players active |
-| `TRADE_ACCEPT_UPDATE` | ❌ | No acceptance testing performed |
+| `TRADE_ACCEPT_UPDATE` | ✅ | **NOW TESTED** - Shows individual accept status |
 | `TRADE_TARGET_ITEM_CHANGED` | ❌ | No target items placed |
 | `TRADE_MONEY_CHANGED` | ❌ | No money amounts set |
 | `TRADE_REQUEST` | ❌ | Testing from initiator side only |
@@ -35,25 +35,27 @@
 ### Hooks That Fired During Testing
 | Hook | Fired? | Frequency | Notes |
 |------|--------|-----------|-------|
-| `ClickTradeButton` | ✅ | 1× per slot click | Shows slot contents accurately |
+| `InitiateTrade` | ✅ | 1× per trade request | Fires when requesting trade with target |
+| `ClickTradeButton` | ✅ | 1× per slot button click | **Only fires on UI button clicks, not item drags** |
+| `AcceptTrade` | ✅ | 1× per accept click | Fires when clicking Accept button |
+| `CancelTrade` | ✅ | 1× per cancel click | Fires when clicking Cancel button |
 
 ### Hooks That Did NOT Fire
 | Hook | Status | Reason |
 |------|--------|--------|
-| `AcceptTrade` | ❌ | No trade acceptance performed |
-| `CancelTrade` | ❌ | No manual cancel performed |
-| `SetTradeMoney` | ❌ | No money amounts set |
-| `InitiateTrade` | ❌ | Hook may not exist or fire |
+| `AcceptTrade` | ✅ | **NOW TESTED** - Fires on Accept button click |
+| `CancelTrade` | ✅ | **NOW TESTED** - Fires on Cancel button click |
+| `SetTradeMoney` | ❌ | Function not available in Classic Era |
 
 ### Tests Performed Headlines
 1. **Login/Reload** - Event initialization patterns
-2. **Trade Request** - "You have requested to trade with Sliveria"
+2. **Trade Requests** - Multiple players (Hydrofor, Airlie, Cytry)
 3. **Trade Window Open** - Partner name detection, slot initialization
-4. **Item Placement** - Scroll of Stamina in slots 1, 6, 7
+4. **Item Placement Methods** - Drag vs UI button interactions
 5. **Non-Tradeable Detection** - "(NOT TRADEABLE)" flag working
-6. **Item Removal** - Clicking slots to remove items
+6. **Item Removal** - Clicking slots to remove items (hook testing)
 7. **Trade Cancellation** - Window closure and cleanup
-8. **Multiple Trade Attempts** - Repeated testing scenarios
+8. **Hook vs Event Behavior** - Different triggers for same actions
 
 ---
 
@@ -63,16 +65,23 @@
 | Event | Reliability | Performance | Best Use Case |
 |-------|-------------|-------------|---------------|
 | `TRADE_SHOW` | 100% | Low | ✅ Primary trade start detection |
-| `TRADE_PLAYER_ITEM_CHANGED` | 100% | Low | ✅ Player slot monitoring |
-| `ClickTradeButton` (hook) | 100% | Low | ✅ Slot interaction detection |
+| `TRADE_PLAYER_ITEM_CHANGED` | 100% | Low | ✅ Player slot monitoring (all item movements) |
+| `TRADE_ACCEPT_UPDATE` | 100% | Low | ✅ Accept status monitoring (Player/Target) |
+| `InitiateTrade` (hook) | 100% | Low | ✅ Trade request detection |
+| `AcceptTrade` (hook) | 100% | Low | ✅ Accept button click detection |
+| `CancelTrade` (hook) | 100% | Low | ✅ Cancel button click detection |
+| `ClickTradeButton` (hook) | 100% | Low | ⚠️ **UI button clicks only** (not item drags) |
 | `TRADE_REQUEST_CANCEL` | 100% | Low | ✅ Trade cancellation detection |
 | `TRADE_CLOSED` | 100% | Low | ⚠️ Fires 2× (use first only) |
 | `PLAYER_MONEY` | 100% | Low | ⚠️ Context-dependent (trade vs other) |
 
 ### Use Case → Best Event Mapping
+- **Detect trade requests:** `InitiateTrade` hook (fires when you request trade)
 - **Detect trade start:** `TRADE_SHOW` (reliable, captures partner name)
-- **Monitor player items:** `TRADE_PLAYER_ITEM_CHANGED` (fires per slot change)
-- **Track slot interactions:** `ClickTradeButton` hook (shows current slot contents)
+- **Monitor ALL item movements:** `TRADE_PLAYER_ITEM_CHANGED` (drag, shift-click, any method)
+- **Track accept status:** `TRADE_ACCEPT_UPDATE` event (shows Player: YES/NO, Target: YES/NO)
+- **Track accept/cancel clicks:** `AcceptTrade`/`CancelTrade` hooks (UI button interactions)
+- **Track UI button clicks only:** `ClickTradeButton` hook (manual slot button clicks)
 - **Detect trade end:** `TRADE_CLOSED` (fires 2×, use first event only)
 - **Validate tradeability:** Item info includes "(NOT TRADEABLE)" flag
 
@@ -81,6 +90,8 @@
 - **Slot Management:** 6 slots per player (P1-P6 for player, T1-T6 for target)
 - **Tradeable Validation:** Items show "(NOT TRADEABLE)" when cannot be traded
 - **Duplicate Events:** TRADE_CLOSED fires twice, second event is redundant
+- **Hook vs Event:** Use events for state monitoring, hooks for specific UI interactions
+- **Item Movement Detection:** `TRADE_PLAYER_ITEM_CHANGED` captures ALL methods, `ClickTradeButton` only UI clicks
 
 ---
 
@@ -88,9 +99,11 @@
 
 ### Predictable Sequences (Safe to rely on order)
 ```
-Trade Initiation: TRADE_SHOW → TradeFrame VISIBLE
-Item Placement: TRADE_PLAYER_ITEM_CHANGED → ClickTradeButton hook
-Item Removal: ClickTradeButton hook → TRADE_PLAYER_ITEM_CHANGED (EMPTY)
+Trade Request: InitiateTrade hook → TRADE_SHOW → TradeFrame VISIBLE
+Item Drag/Place: TRADE_PLAYER_ITEM_CHANGED (no hook)
+Item Button Click: TRADE_PLAYER_ITEM_CHANGED + ClickTradeButton hook (simultaneous)
+Accept Click: TRADE_ACCEPT_UPDATE + AcceptTrade hook (simultaneous)
+Cancel Click: CancelTrade hook → TRADE_CLOSED (×2) → TradeFrame HIDDEN
 Trade End: TRADE_CLOSED (×2) → TradeFrame HIDDEN → PLAYER_MONEY → TRADE_REQUEST_CANCEL
 ```
 
@@ -151,17 +164,21 @@ local isTradeOpen = TradeFrame and TradeFrame:IsShown()
 
 ### ✅ Recommended
 ```lua
--- Trade window tracking
+-- Complete trade monitoring
 eventFrame:RegisterEvent("TRADE_SHOW")
-eventFrame:RegisterEvent("TRADE_PLAYER_ITEM_CHANGED")
+eventFrame:RegisterEvent("TRADE_PLAYER_ITEM_CHANGED")  -- All item movements
 eventFrame:RegisterEvent("TRADE_CLOSED")
 
--- Slot interaction monitoring
+-- Trade request detection
+hooksecurefunc("InitiateTrade", function(unitId)
+    local targetName = UnitName(unitId)
+    -- Log trade initiation
+end)
+
+-- UI button click detection (optional - for specific interactions)
 hooksecurefunc("ClickTradeButton", function(index)
     local name, texture, quantity, quality, enchantment, canTrade = GetTradePlayerItemInfo(index)
-    if name and not canTrade then
-        -- Item is not tradeable, warn user
-    end
+    -- This only fires on manual button clicks, not item drags
 end)
 
 -- Trade partner detection
@@ -182,13 +199,14 @@ if event == "TRADE_CLOSED" then
     end
 end
 
--- DON'T rely on partner name timing
-if event == "TRADE_SHOW" then
-    local partner = UnitName("npc")
-    if partner == "Invalid" then
-        -- Retry partner detection later
-    end
-end
+-- DON'T rely only on ClickTradeButton for item monitoring
+hooksecurefunc("ClickTradeButton", function(index)
+    -- This misses drag-and-drop item placement!
+    -- Use TRADE_PLAYER_ITEM_CHANGED event instead
+end)
+
+-- DON'T assume hooks fire for all item movements
+-- ClickTradeButton only fires on UI button clicks, not drags
 ```
 
 ---

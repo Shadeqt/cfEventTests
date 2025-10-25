@@ -958,6 +958,155 @@ if SelectCraft then
 	end)
 end
 
+-- Test functions for profession hooks
+local function testProfessionHooks()
+	print("|cff00ff00=== TESTING PROFESSION HOOKS ===|r")
+	
+	-- Test TradeSkill hooks (if TradeSkill window is open)
+	if TradeSkillFrame and TradeSkillFrame:IsShown() then
+		print("|cffffaa00Testing TradeSkill hooks...|r")
+		
+		-- Test ExpandTradeSkillSubClass hook
+		print("|cffffaa00Testing ExpandTradeSkillSubClass hook...|r")
+		if ExpandTradeSkillSubClass then
+			ExpandTradeSkillSubClass(1)
+		else
+			print("|cffff0000ExpandTradeSkillSubClass function not available|r")
+		end
+		
+		-- Test CollapseTradeSkillSubClass hook
+		print("|cffffaa00Testing CollapseTradeSkillSubClass hook...|r")
+		if CollapseTradeSkillSubClass then
+			CollapseTradeSkillSubClass(1)
+		else
+			print("|cffff0000CollapseTradeSkillSubClass function not available|r")
+		end
+		
+		-- Test SelectTradeSkill hook
+		print("|cffffaa00Testing SelectTradeSkill hook...|r")
+		if SelectTradeSkill then
+			SelectTradeSkill(1)
+		else
+			print("|cffff0000SelectTradeSkill function not available|r")
+		end
+		
+		-- Test CastTradeSkill hook (if we have a recipe selected)
+		local numTradeSkills = _GetNumTradeSkills and _GetNumTradeSkills() or 0
+		if numTradeSkills > 0 then
+			print("|cffffaa00Testing CastTradeSkill hook on first recipe...|r")
+			if CastTradeSkill then
+				CastTradeSkill(1, 1)
+			else
+				print("|cffff0000CastTradeSkill function not available|r")
+			end
+		else
+			print("|cffff6600Cannot test CastTradeSkill - no recipes available|r")
+		end
+		
+		-- Test CloseTradeSkill hook
+		print("|cffffaa00Testing CloseTradeSkill hook...|r")
+		if CloseTradeSkill then
+			CloseTradeSkill()
+		else
+			print("|cffff0000CloseTradeSkill function not available|r")
+		end
+		
+	-- Test Craft hooks (if Craft window is open)
+	elseif CraftFrame and CraftFrame:IsShown() then
+		print("|cffffaa00Testing Craft hooks...|r")
+		
+		-- Test ExpandCraftSubClass hook
+		print("|cffffaa00Testing ExpandCraftSubClass hook...|r")
+		if ExpandCraftSubClass then
+			ExpandCraftSubClass(1)
+		else
+			print("|cffff0000ExpandCraftSubClass function not available|r")
+		end
+		
+		-- Test CollapseCraftSubClass hook
+		print("|cffffaa00Testing CollapseCraftSubClass hook...|r")
+		if CollapseCraftSubClass then
+			CollapseCraftSubClass(1)
+		else
+			print("|cffff0000CollapseCraftSubClass function not available|r")
+		end
+		
+		-- Test SelectCraft hook
+		print("|cffffaa00Testing SelectCraft hook...|r")
+		if SelectCraft then
+			SelectCraft(1)
+		else
+			print("|cffff0000SelectCraft function not available|r")
+		end
+		
+		-- Test DoCraft hook (if we have a recipe selected)
+		local numCrafts = _GetNumCrafts and _GetNumCrafts() or 0
+		if numCrafts > 0 then
+			print("|cffffaa00Testing DoCraft hook on first recipe...|r")
+			if DoCraft then
+				DoCraft(1)
+			else
+				print("|cffff0000DoCraft function not available|r")
+			end
+		else
+			print("|cffff6600Cannot test DoCraft - no recipes available|r")
+		end
+		
+		-- Test CloseCraft hook
+		print("|cffffaa00Testing CloseCraft hook...|r")
+		if CloseCraft then
+			CloseCraft()
+		else
+			print("|cffff0000CloseCraft function not available|r")
+		end
+		
+	else
+		print("|cffff6600Cannot test profession hooks - no profession window open|r")
+		print("|cffff6600Open a TradeSkill or Craft window first, then run /testprofessionhooks|r")
+	end
+	
+	-- Test trainer hooks (if trainer window is open)
+	if ClassTrainerFrame and ClassTrainerFrame:IsShown() then
+		print("|cffffaa00Testing trainer hooks...|r")
+		
+		-- Test BuyTrainerService hook (if there are services available)
+		local numServices = GetNumTrainerServices and GetNumTrainerServices() or 0
+		if numServices > 0 then
+			print("|cffffaa00Testing BuyTrainerService hook on first service...|r")
+			if BuyTrainerService then
+				-- Only buy if it's available and we can afford it
+				local serviceName, serviceSubText, serviceType, isExpanded, serviceDisabled = GetTrainerServiceInfo(1)
+				if serviceName and not serviceDisabled and serviceType == "available" then
+					BuyTrainerService(1)
+				else
+					print("|cffff6600Skipping BuyTrainerService - service not available or disabled|r")
+				end
+			else
+				print("|cffff0000BuyTrainerService function not available|r")
+			end
+		else
+			print("|cffff6600Cannot test BuyTrainerService - no trainer services available|r")
+		end
+		
+		-- Test CloseTrainer hook
+		print("|cffffaa00Testing CloseTrainer hook...|r")
+		if CloseTrainer then
+			CloseTrainer()
+		else
+			print("|cffff0000CloseTrainer function not available|r")
+		end
+	else
+		print("|cffff6600Cannot test trainer hooks - no trainer window open|r")
+	end
+	
+	print("|cff00ff00=== PROFESSION HOOK TESTS COMPLETE ===|r")
+end
+
+-- Slash command to test profession hooks
+SLASH_TESTPROFESSIONHOOKS1 = "/testprofessionhooks"
+SlashCmdList["TESTPROFESSIONHOOKS"] = testProfessionHooks
+
 print("|cff00ff00Profession investigation ready - events will print to chat|r")
 print("|cff00ff00Open any profession window, trainer, and perform crafting to test events|r")
+print("|cff00ff00Use /testprofessionhooks to test profession function hooks|r")
 print("|cff00ff00Classic Era (1.15) compatible version loaded|r")

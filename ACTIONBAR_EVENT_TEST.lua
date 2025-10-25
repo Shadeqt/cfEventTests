@@ -897,6 +897,78 @@ clearOperationFrame:SetScript("OnUpdate", function()
 	end
 end)
 
+-- Test functions for actionbar hooks
+local function testActionbarHooks()
+	print("|cff00ff00=== TESTING ACTIONBAR HOOKS ===|r")
+	print("|cffff6600NOTE: Protected function calls have been disabled to prevent Blizzard UI warnings|r")
+	print("|cffff6600The hooks are still active and will trigger when you manually use actions|r")
+	
+	-- Test hook availability (but don't call protected functions)
+	print("|cffffaa00Checking UseAction hook availability...|r")
+	if _UseAction then
+		print("|cff00ff00✓ UseAction hook is available|r")
+		if _HasAction(1) then
+			print("|cffffaa00  Slot 1 has action: " .. getActionInfo(1) .. "|r")
+			print("|cffffaa00  To test: manually click action button 1|r")
+		else
+			print("|cffff6600  Slot 1 is empty - place an action there to test|r")
+		end
+	else
+		print("|cffff0000✗ UseAction function not available|r")
+	end
+	
+	print("|cffffaa00Checking PickupAction/PlaceAction hook availability...|r")
+	if _PickupAction and _PlaceAction then
+		print("|cff00ff00✓ PickupAction and PlaceAction hooks are available|r")
+		if _HasAction(2) then
+			print("|cffffaa00  Slot 2 has action: " .. getActionInfo(2) .. "|r")
+			print("|cffffaa00  To test: drag action button 2 to another slot|r")
+		else
+			print("|cffff6600  Slot 2 is empty - place an action there to test|r")
+		end
+	else
+		print("|cffff0000✗ PickupAction or PlaceAction functions not available|r")
+	end
+	
+	print("|cffffaa00Checking CastSpellByName hook availability...|r")
+	if _CastSpellByName then
+		print("|cff00ff00✓ CastSpellByName hook is available|r")
+		print("|cffffaa00  To test: use a keybind or macro that calls CastSpellByName|r")
+	else
+		print("|cffff0000✗ CastSpellByName function not available|r")
+	end
+	
+	print("|cffffaa00Checking SpellStopCasting hook availability...|r")
+	if _SpellStopCasting then
+		print("|cff00ff00✓ SpellStopCasting hook is available|r")
+		print("|cffffaa00  To test: start casting a spell then press Escape|r")
+	else
+		print("|cffff0000✗ SpellStopCasting function not available|r")
+	end
+	
+	print("|cffffaa00Checking CastShapeshiftForm hook availability...|r")
+	if _CastShapeshiftForm then
+		print("|cff00ff00✓ CastShapeshiftForm hook is available|r")
+		if _GetNumShapeshiftForms and _GetNumShapeshiftForms() > 0 then
+			print("|cffffaa00  " .. getShapeshiftInfo() .. "|r")
+			print("|cffffaa00  To test: click a shapeshift form button|r")
+		else
+			print("|cffff6600  No shapeshift forms available for this character|r")
+		end
+	else
+		print("|cffff0000✗ CastShapeshiftForm function not available|r")
+	end
+	
+	print("")
+	print("|cff00ff00=== ACTIONBAR HOOK TESTS COMPLETE ===|r")
+	print("|cffffaa00All hooks are monitoring and will log when you perform actions manually|r")
+end
+
+-- Slash command to test actionbar hooks
+SLASH_TESTACTIONBARHOOKS1 = "/testactionbarhooks"
+SlashCmdList["TESTACTIONBARHOOKS"] = testActionbarHooks
+
 print("|cff00ff00Actionbar investigation ready - events will print to chat|r")
 print("|cff00ff00Use abilities, drag actions, change pages to test events|r")
+print("|cff00ff00Use /testactionbarhooks to test actionbar function hooks|r")
 print("|cff00ff00Classic Era (1.15) compatible version loaded|r")

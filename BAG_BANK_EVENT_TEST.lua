@@ -536,4 +536,64 @@ if OpenAllBags then
 	end)
 end
 
+-- Test functions for bag/bank hooks
+local function testBagHooks()
+	print("|cff00ff00=== TESTING BAG/BANK HOOKS ===|r")
+	
+	-- Test ToggleBackpack hook
+	print("|cffffaa00Testing ToggleBackpack hook...|r")
+	if ToggleBackpack then
+		ToggleBackpack()
+	else
+		print("|cffff0000ToggleBackpack function not available|r")
+	end
+	
+	-- Test ToggleBag hook for bag 1
+	print("|cffffaa00Testing ToggleBag hook for bag 1...|r")
+	if ToggleBag then
+		ToggleBag(1)
+	else
+		print("|cffff0000ToggleBag function not available|r")
+	end
+	
+	-- Test OpenBag hook
+	print("|cffffaa00Testing OpenBag hook for bag 2...|r")
+	if OpenBag then
+		OpenBag(2)
+	else
+		print("|cffff0000OpenBag function not available|r")
+	end
+	
+	-- Test CloseBag hook
+	print("|cffffaa00Testing CloseBag hook for bag 2...|r")
+	if CloseBag then
+		CloseBag(2)
+	else
+		print("|cffff0000CloseBag function not available|r")
+	end
+	
+	-- Test OpenAllBags hook
+	print("|cffffaa00Testing OpenAllBags hook...|r")
+	if OpenAllBags then
+		OpenAllBags()
+	else
+		print("|cffff0000OpenAllBags function not available|r")
+	end
+	
+	-- Test CloseAllBags hook
+	print("|cffffaa00Testing CloseAllBags hook...|r")
+	if CloseAllBags then
+		CloseAllBags()
+	else
+		print("|cffff0000CloseAllBags function not available|r")
+	end
+	
+	print("|cff00ff00=== BAG/BANK HOOK TESTS COMPLETE ===|r")
+end
+
+-- Slash command to test bag/bank hooks
+SLASH_TESTBAGHOOKS1 = "/testbaghooks"
+SlashCmdList["TESTBAGHOOKS"] = testBagHooks
+
 print("|cff00ff00Bag/Bank investigation ready - events will print to chat|r")
+print("|cff00ff00Use /testbaghooks to test bag/bank function hooks|r")

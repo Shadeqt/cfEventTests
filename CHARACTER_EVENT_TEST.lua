@@ -753,5 +753,82 @@ SlashCmdList["EVENTSTATS"] = function()
 	print("|cff00ff00=== END STATISTICS ===|r")
 end
 
+-- Test functions for character hooks
+local function testCharacterHooks()
+	print("|cff00ff00=== TESTING CHARACTER HOOKS ===|r")
+	
+	-- Test CharacterFrame_Expand hook
+	print("|cffffaa00Testing CharacterFrame_Expand hook...|r")
+	if CharacterFrame_Expand then
+		CharacterFrame_Expand()
+	else
+		print("|cffff0000CharacterFrame_Expand function not available|r")
+	end
+	
+	-- Test CharacterFrame_Collapse hook
+	print("|cffffaa00Testing CharacterFrame_Collapse hook...|r")
+	if CharacterFrame_Collapse then
+		CharacterFrame_Collapse()
+	else
+		print("|cffff0000CharacterFrame_Collapse function not available|r")
+	end
+	
+	-- Test UseInventoryItem hook (use main hand weapon if equipped)
+	local mainHandLink = _GetInventoryItemLink("player", 16) -- Main hand slot
+	if mainHandLink then
+		print("|cffffaa00Testing UseInventoryItem hook on main hand...|r")
+		if UseInventoryItem then
+			UseInventoryItem(16)
+		else
+			print("|cffff0000UseInventoryItem function not available|r")
+		end
+	else
+		print("|cffff6600Cannot test UseInventoryItem - no main hand weapon equipped|r")
+	end
+	
+	-- Test PickupInventoryItem hook (pickup/place back main hand)
+	if mainHandLink then
+		print("|cffffaa00Testing PickupInventoryItem hook on main hand...|r")
+		if PickupInventoryItem then
+			PickupInventoryItem(16)
+			-- Place it back immediately
+			PickupInventoryItem(16)
+		else
+			print("|cffff0000PickupInventoryItem function not available|r")
+		end
+	else
+		print("|cffff6600Cannot test PickupInventoryItem - no main hand weapon equipped|r")
+	end
+	
+	-- Test EquipItemByName hook (try to equip something from bags)
+	print("|cffffaa00Testing EquipItemByName hook...|r")
+	if EquipItemByName then
+		-- Try to equip any weapon we can find in bags
+		for bag = 0, 4 do
+			local numSlots = GetContainerNumSlots and GetContainerNumSlots(bag) or 0
+			for slot = 1, numSlots do
+				local itemLink = GetContainerItemLink and GetContainerItemLink(bag, slot)
+				if itemLink then
+					local itemName = itemLink:match("%[(.-)%]")
+					if itemName then
+						EquipItemByName(itemName)
+						print("|cffffaa00  Attempted to equip:|r " .. itemName)
+						break
+					end
+				end
+			end
+		end
+	else
+		print("|cffff0000EquipItemByName function not available|r")
+	end
+	
+	print("|cff00ff00=== CHARACTER HOOK TESTS COMPLETE ===|r")
+end
+
+-- Slash command to test character hooks
+SLASH_TESTCHARACTERHOOKS1 = "/testcharacterhooks"
+SlashCmdList["TESTCHARACTERHOOKS"] = testCharacterHooks
+
 print("|cff00ff00Character equipment investigation ready - events will print to chat|r")
 print("|cff00ff00Use /eventstats to see event statistics (total fired vs displayed)|r")
+print("|cff00ff00Use /testcharacterhooks to test character function hooks|r")

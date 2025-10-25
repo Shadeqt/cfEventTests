@@ -54,6 +54,10 @@
 4. **Bank Interactions** - Container vs bag differences
 5. **Item Consumption** - BAG_UPDATE_COOLDOWN patterns
 6. **New Item Detection** - ITEM_PUSH vs moves/buybacks
+7. **Merchant Purchases** - Real transaction with Small Quiver (1s cost)
+8. **Mail Item Retrieval** - Auction house mail with Bolt of Linen Cloth
+9. **Auction Creation** - Item removal for Linen Cloth auction
+10. **Cross-System Integration** - Perfect coordination with merchant, mail, auction systems
 
 ---
 
@@ -106,6 +110,9 @@ Login: BAG_UPDATE (bags 1-4, 5-10) → BAG_CONTAINER_UPDATE → PLAYER_ENTERING_
 Item Move: ITEM_LOCK_CHANGED (pickup) → ITEM_LOCK_CHANGED (placement) → BAG_UPDATE → BAG_UPDATE_DELAYED
 New Item: ITEM_PUSH → BAG_NEW_ITEMS_UPDATED → BAG_UPDATE → BAG_UPDATE_DELAYED
 Bank Operation: PLAYERBANKSLOTS_CHANGED → BAG_UPDATE (spam) → BAG_UPDATE_DELAYED
+Merchant Purchase: PLAYER_MONEY → ITEM_PUSH → CHAT_MSG_LOOT → BAG_UPDATE (+430ms) → BAG_UPDATE_DELAYED
+Mail Retrieval: ITEM_PUSH → CHAT_MSG_LOOT → MAIL_INBOX_UPDATE → BAG_UPDATE (+734ms) → BAG_UPDATE_DELAYED (async)
+Auction Creation: ITEM_LOCK_CHANGED → ITEM_UNLOCKED → BAG_UPDATE → BAG_UPDATE_DELAYED
 ```
 
 ### Bag Open/Close (Hook-based Only)

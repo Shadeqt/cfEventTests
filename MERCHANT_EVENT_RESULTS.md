@@ -34,20 +34,26 @@
 ### Hooks That Fired During Testing
 | Hook | Fired? | Frequency | Notes |
 |------|--------|-----------|-------|
-| `BuyMerchantItem` | ✅ | 1× per purchase | Fires before MERCHANT_UPDATE |
-| `BuybackItem` | ✅ | 1× per buyback | +260ms delay to money change |
-| `MerchantFrame_UpdateMerchantInfo` | ✅ | 1× per merchant tab | **Tab switching detection** |
-| `MerchantFrame_UpdateBuybackInfo` | ✅ | 1× per buyback tab | **Tab switching detection** |
-| `ShowMerchantSellCursor` | ✅ | 1× per sell drag | Sell cursor activation |
+| `MerchantFrame_UpdateMerchantInfo` | ✅ | Multiple per session | **Merchant data refresh** |
+| `MerchantFrame_UpdateBuybackInfo` | ✅ | 1× per test | Buyback data update |
+| `RepairAllItems` | ✅ | 1× per test | **Repair function working** (no repairs needed) |
+| `BuyMerchantItem` | ✅ | 1× per purchase | **Perfect purchase tracking** |
+| `CloseMerchant` | ✅ | 2× per close | Duplicate close calls (normal behavior) |
 
 ### Hooks That Did NOT Fire
 | Hook | Status | Reason |
 |------|--------|--------|
-| `RepairAllItems` | ❌ | No repair merchant tested |
-| `CloseMerchant` | ❌ | Hook did not trigger during testing |
+| `ShowMerchantSellCursor` | ❌ | Function not available in Classic Era |
 
 ### Tests Performed Headlines
 1. **Login/Reload** - Money initialization, bag updates
+2. **Real Merchant Interaction** - Weapon/armor merchant with 20 items
+3. **Actual Purchase** - Small Quiver for 1s (real money transaction)
+4. **Hook Testing** - All merchant function hooks tested
+5. **Money Tracking** - Precise transaction monitoring (-1s 8c total)
+6. **Item Delivery** - Complete ITEM_PUSH → BAG_UPDATE sequence
+7. **Repair Services** - RepairAllItems function tested (no repairs needed)
+8. **Cross-System Integration** - Perfect bag and UI system coordination
 2. **Open Merchant** - MERCHANT_SHOW with stale data detection
 3. **Single Purchase** - Rough Arrow x200 (+55ms item arrival)
 4. **Rapid Purchase Spam** - 7× purchases (33 BAG_UPDATE events!)
