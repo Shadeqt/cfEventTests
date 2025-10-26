@@ -35,6 +35,18 @@ local _GetNumSpellTabs = GetNumSpellTabs
 -- Power functions don't exist in Classic Era
 local _GetComboPoints = GetComboPoints
 
+-- Pet action API
+local _GetPetActionInfo = GetPetActionInfo
+local _PetHasActionBar = PetHasActionBar
+local _UnitExists = UnitExists
+local _UnitClass = UnitClass
+
+-- Spell API
+local _C_Spell = C_Spell
+
+-- Constants
+local _NUM_PET_ACTION_SLOTS = NUM_PET_ACTION_SLOTS
+
 print("=== ACTIONBAR EVENT INVESTIGATION LOADED ===")
 print("This module will log ALL actionbar-related events")
 print("Watch your chat for detailed event information")
@@ -886,6 +898,63 @@ if _SpellStopCasting then
 	end)
 end
 
+-- Hook ActionButton update functions
+hooksecurefunc("ActionButton_UpdateUsable", function(button)
+	local currentTime = _GetTime()
+	local delta = currentTime - lastEventTime
+	print("|cffff9900[" .. string.format("%.2f", currentTime) .. "] (+" .. string.format("%.0fms", delta * 1000) .. ") [Button Hook]|r ActionButton_UpdateUsable")
+	
+	if button and button.action then
+		local actionInfo = getActionInfo(button.action)
+		print("  |cffffaa00Button Action:|r " .. actionInfo)
+	end
+	
+	lastEventTime = currentTime
+end)
+
+hooksecurefunc("ActionButton_UpdateRangeIndicator", function(button)
+	local currentTime = _GetTime()
+	local delta = currentTime - lastEventTime
+	print("|cffff9900[" .. string.format("%.2f", currentTime) .. "] (+" .. string.format("%.0fms", delta * 1000) .. ") [Button Hook]|r ActionButton_UpdateRangeIndicator")
+	
+	if button and button.action then
+		local actionInfo = getActionInfo(button.action)
+		print("  |cffffaa00Button Action:|r " .. actionInfo)
+	end
+	
+	lastEventTime = currentTime
+end)
+
+-- Hook PetActionBar_Update for pet classes
+local _, playerClass = UnitClass("player")
+if playerClass == "HUNTER" or playerClass == "WARLOCK" then
+	hooksecurefunc("PetActionBar_Update", function()
+		local currentTime = _GetTime()
+		local delta = currentTime - lastEventTime
+		print("|cffff9900[" .. string.format("%.2f", currentTime) .. "] (+" .. string.format("%.0fms", delta * 1000) .. ") [Pet Hook]|r PetActionBar_Update")
+		
+		if PetHasActionBar() then
+			print("  |cffffaa00Pet has action bar - checking pet actions|r")
+			for i = 1, NUM_PET_ACTION_SLOTS do
+				local name, texture, isToken, isActive, autoCastAllowed, autoCastEnabled, spellId, hasRangeCheck, isInRange = GetPetActionInfo(i)
+				if spellId then
+					local rangeStr = hasRangeCheck and (isInRange and "[IN RANGE]" or "[OUT OF RANGE]") or "[NO RANGE]"
+					local usableStr = ""
+					if C_Spell and C_Spell.IsSpellUsable then
+						local isUsable, notEnoughMana = C_Spell.IsSpellUsable(spellId)
+						usableStr = isUsable and "[USABLE]" or (notEnoughMana and "[NO MANA]" or "[UNUSABLE]")
+					end
+					print("  |cffffaa00  Pet Slot " .. i .. ":|r " .. (name or ("Spell:" .. spellId)) .. " " .. rangeStr .. " " .. usableStr)
+				end
+			end
+		else
+			print("  |cffffaa00Pet has no action bar|r")
+		end
+		
+		lastEventTime = currentTime
+	end)
+end
+
 -- Clear operation tracking after a delay
 local clearOperationFrame = _CreateFrame("Frame")
 clearOperationFrame:SetScript("OnUpdate", function()
@@ -957,6 +1026,31 @@ local function testActionbarHooks()
 		end
 	else
 		print("|cffff0000✗ CastShapeshiftForm function not available|r")
+	end
+	
+	print("|cffffaa00Checking ActionButton hooks availability...|r")
+	if ActionButton_UpdateUsable and ActionButton_UpdateRangeIndicator then
+		print("|cff00ff00✓ ActionButton_UpdateUsable and ActionButton_UpdateRangeIndicator hooks are available|r")
+		print("|cffffaa00  To test: target something and use spells to trigger range/usability updates|r")
+	else
+		print("|cffff0000✗ ActionButton update functions not available|r")
+	end
+	
+	print("|cffffaa00Checking PetActionBar_Update hook availability...|r")
+	local _, playerClass = _UnitClass("player")
+	if playerClass == "HUNTER" or playerClass == "WARLOCK" then
+		if PetActionBar_Update then
+			print("|cff00ff00✓ PetActionBar_Update hook is available for " .. playerClass .. "|r")
+			if _UnitExists("pet") and _PetHasActionBar() then
+				print("|cffffaa00  Pet exists with action bar - hook will trigger on pet updates|r")
+			else
+				print("|cffff6600  No pet or pet action bar - summon a pet to test|r")
+			end
+		else
+			print("|cffff0000✗ PetActionBar_Update function not available|r")
+		end
+	else
+		print("|cffff6600  Pet action bar hooks only available for Hunter/Warlock (you are " .. playerClass .. ")|r")
 	end
 	
 	print("")

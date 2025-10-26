@@ -51,6 +51,9 @@
 | `UseAction` | ✅ | 1× per button click | **Perfect for action tracking** |
 | `PickupAction` | ✅ | 1× per drag start | Shows source slot info |
 | `PlaceAction` | ✅ | 1× per drag end | Shows cursor and target slot |
+| `ActionButton_UpdateUsable` | ✅ | High frequency | **Perfect for player button usability changes** |
+| `ActionButton_UpdateRangeIndicator` | ✅ | Medium frequency | **Perfect for player button range changes** |
+| `PetActionBar_Update` | ✅ | 1× per pet bar change | **Perfect for pet button updates** |
 | `CastSpell` | ❌ | Not tested | Direct spell casting |
 | `CastSpellByName` | ✅ | Available | Hook confirmed available |
 | `SpellStopCasting` | ✅ | Available | Hook confirmed available |
@@ -204,6 +207,25 @@ local cursorType, info1, info2 = GetCursorInfo()
 ClearCursor()
 ```
 
+### Pet Action Functions
+```lua
+-- Get pet action details
+local name, texture, isToken, isActive, autoCastAllowed, autoCastEnabled, spellId, hasRangeCheck, isInRange = GetPetActionInfo(slot)
+
+-- Check pet state
+local hasPetActionBar = PetHasActionBar()
+local petExists = UnitExists("pet")
+
+-- Pet action constants
+local numPetSlots = NUM_PET_ACTION_SLOTS  -- Typically 10
+```
+
+### Spell API Functions
+```lua
+-- Check spell usability by spell ID (different from IsUsableAction)
+local isUsable, notEnoughMana = C_Spell.IsSpellUsable(spellId)
+```
+
 ### Shapeshift Functions
 ```lua
 -- Get shapeshift info
@@ -269,6 +291,40 @@ hooksecurefunc("UseAction", function(slot, checkCursor, onSelf)
     -- Example captured data:
     -- slot = 3, checkCursor = nil, onSelf = "LeftButton"
 end)
+
+-- Pet action coloring hooks (TESTED AND WORKING)
+hooksecurefunc("ActionButton_UpdateUsable", updatePlayerButton)
+hooksecurefunc("ActionButton_UpdateRangeIndicator", updatePlayerButton)
+
+-- Pet action bar updates for Hunter/Warlock
+local _, playerClass = UnitClass("player")
+if playerClass == "HUNTER" or playerClass == "WARLOCK" then
+    hooksecurefunc("PetActionBar_Update", function()
+        -- CRITICAL: Disable Blizzard's built-in range timer to prevent color conflicts
+        PetActionBarFrame.rangeTimer = nil
+        
+        if PetHasActionBar() then
+            for i = 1, NUM_PET_ACTION_SLOTS do
+                local button = _G["PetActionButton" .. i]
+                if button and button.icon then
+                    local _, _, _, _, _, _, spellId, hasRangeCheck, isInRange = GetPetActionInfo(i)
+                    if spellId then
+                        local _, noMana = C_Spell.IsSpellUsable(spellId)
+                        local outOfRange = hasRangeCheck and not isInRange
+                        -- Apply coloring: blue (no mana), red (out of range), white (normal)
+                        if noMana then
+                            button.icon:SetVertexColor(0.1, 0.3, 1.0)  -- Blue
+                        elseif outOfRange then
+                            button.icon:SetVertexColor(1.0, 0.3, 0.1)  -- Red
+                        else
+                            button.icon:SetVertexColor(1.0, 1.0, 1.0)  -- White
+                        end
+                    end
+                end
+            end
+        end
+    end)
+end
 ```
 
 ### ❌ Anti-Patterns
@@ -438,6 +494,163 @@ end
 ```
 
 **Status: Complete testing provides all data needed for robust actionbar coloring addon implementation.**
+
+---
+
+## CRITICAL UPDATE - October 26, 2025: SetVertexColor Blocking Discovery
+
+### Major Implementation Issue Discovered and Resolved ✅
+
+**Problem:** Player action buttons were not showing color changes despite successful SetVertexColor calls
+**Root Cause:** Blizzard's UI system overwrites SetVertexColor calls on player action buttons immediately after they're applied
+**Solution:** Block Blizzard's SetVertexColor calls and use stored original function (same technique used for pet buttons)
+
+### SetVertexColor Blocking Mechanism (TESTED AND WORKING)
+```lua
+-- Cache player button references and block Blizzard's SetVertexColor
+local playerButtons = {}
+local buttonNames = {
+    "ActionButton", "MultiBarBottomLeftButton", "MultiBarBottomRightButton", 
+    "MultiBarRightButton", "MultiBarLeftButton"
+}
+
+for _, baseName in ipairs(buttonNames) do
+    for i = 1, 12 do
+        local button = _G[baseName .. i]
+        if button and button.icon then
+            -- Store original SetVertexColor before blocking it
+            local originalSetVertexColor = button.icon.SetVertexColor
+            button.icon.SetVertexColor = function() end  -- Block Blizzard calls
+            
+            playerButtons[button] = {
+                button = button,
+                icon = button.icon,
+                setColor = originalSetVertexColor  -- Direct access to original
+            }
+        end
+    end
+end
+
+-- Apply colors using stored original function
+local function applyButtonColor(button, isOutOfMana, isOutOfRange)
+    local playerButtonData = playerButtons[button]
+    if playerButtonData then
+        -- Use stored original SetVertexColor to bypass blocking
+        if isOutOfMana then
+            playerButtonData.setColor(button.icon, 0.1, 0.3, 1.0)  -- Blue
+        elseif isOutOfRange then
+            playerButtonData.setColor(button.icon, 1.0, 0.3, 0.1)  -- Red
+        else
+            playerButtonData.setColor(button.icon, 1.0, 1.0, 1.0)  -- White
+        end
+    end
+end
+```
+
+### Range Detection Fix ✅
+**Problem:** `IsActionInRange(action) == 0` was incorrect logic
+**Solution:** `IsActionInRange(action) == false` is the correct check
+
+```lua
+-- WRONG (was causing all buttons to show as in-range)
+local isOutOfRange = IsActionInRange(button.action) == 0
+
+-- CORRECT (now working perfectly)
+local rangeResult = IsActionInRange(button.action)
+local isOutOfRange = rangeResult == false  -- false=out of range, nil=no range, true=in range
+```
+
+### Button Filtering Optimization ✅
+**Discovery:** Only buttons with range indicators need processing (performance optimization from working cfButtonColors)
+```lua
+-- Only process buttons that have range indicators
+if not ActionHasRange(button.action) then return end
+```
+
+### Complete Working Implementation
+```lua
+-- Update player action button colors (TESTED AND WORKING)
+local function updatePlayerActionButton(button)
+    if not (button and button.icon and button.action) then return end
+    
+    -- Only process buttons that have range indicators
+    if not ActionHasRange(button.action) then return end
+    
+    local _, isOutOfMana = IsUsableAction(button.action)
+    local rangeResult = IsActionInRange(button.action)
+    local isOutOfRange = rangeResult == false  -- CRITICAL FIX
+    
+    -- Use stored original SetVertexColor to bypass Blizzard blocking
+    local playerButtonData = playerButtons[button]
+    if playerButtonData then
+        if isOutOfMana then
+            playerButtonData.setColor(button.icon, 0.1, 0.3, 1.0)  -- Blue
+        elseif isOutOfRange then
+            playerButtonData.setColor(button.icon, 1.0, 0.3, 0.1)  -- Red
+        else
+            playerButtonData.setColor(button.icon, 1.0, 1.0, 1.0)  -- White
+        end
+    end
+end
+
+-- Hook into Blizzard's update functions
+hooksecurefunc("ActionButton_UpdateUsable", updatePlayerActionButton)
+hooksecurefunc("ActionButton_UpdateRangeIndicator", updatePlayerActionButton)
+```
+
+### Pet Button Success (Already Working)
+Pet buttons were already working because cfButtonColors uses the same SetVertexColor blocking technique:
+```lua
+-- Pet buttons block SetVertexColor and use stored original (WORKING)
+local originalSetVertexColor = icon.SetVertexColor
+icon.SetVertexColor = function() end  -- Block Blizzard calls
+-- Use originalSetVertexColor(icon, r, g, b) for actual coloring
+```
+
+### PetActionBarFrame Timer Disable Technique ✅
+**Critical Discovery:** `PetActionBarFrame.rangeTimer = nil`
+
+**Purpose:** Disables Blizzard's built-in range coloring system for pet action buttons to prevent conflicts with custom coloring addons.
+
+**Implementation Location:** Inside `PetActionBar_Update` hook in cfButtonColors/Modules/PetActions.lua
+
+**Why This Is Essential:**
+- Blizzard's default pet action bar has an internal timer that automatically updates button colors based on range
+- This timer runs independently and will overwrite any custom SetVertexColor calls
+- Setting `rangeTimer = nil` disables this automatic coloring system
+- Must be called on every `PetActionBar_Update` because Blizzard may recreate the timer
+
+**Technical Details:**
+```lua
+hooksecurefunc("PetActionBar_Update", function()
+    -- Disable Blizzard's range timer FIRST, before applying custom colors
+    PetActionBarFrame.rangeTimer = nil
+    
+    -- Now safe to apply custom coloring without conflicts
+    updateAllPetButtons()
+end)
+```
+
+**Without This Fix:** Custom pet button colors get overwritten by Blizzard's system within seconds
+**With This Fix:** Custom colors persist indefinitely until manually changed
+
+**Scope:** Only affects pet action buttons (PetActionButton1-10), not player action buttons
+**Classes:** Essential for Hunter and Warlock pet action bar coloring
+**Performance Impact:** Minimal - simply nullifies a timer reference
+
+### Key Technical Discoveries
+1. **Blizzard Override Behavior**: Player action buttons have their SetVertexColor calls overwritten by Blizzard's UI system
+2. **Pet vs Player Difference**: Pet buttons needed blocking from the start, player buttons appeared to work but were being overwritten
+3. **Range Detection Logic**: `== false` vs `== 0` was the critical difference for proper range detection
+4. **Performance Optimization**: Only processing buttons with `ActionHasRange(action)` significantly improves performance
+5. **State Persistence**: SetVertexColor blocking ensures colors persist through Blizzard's UI updates
+
+### Implementation Status: FULLY WORKING ✅
+- ✅ Player buttons: Red (out of range), Blue (out of mana), White (normal)
+- ✅ Pet buttons: Same coloring system, colors persist during combat/attacks
+- ✅ Range detection: Proper true/false/nil handling
+- ✅ Performance: Only processes buttons with range requirements
+- ✅ State caching: Prevents redundant color updates
 
 ---
 

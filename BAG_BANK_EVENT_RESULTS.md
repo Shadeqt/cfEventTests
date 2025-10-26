@@ -1,8 +1,8 @@
 # WoW Classic Era: Bag and Bank Events Reference
 ## Version 1.15 Event Investigation
 
-**Last Updated:** October 25, 2025
-**Testing:** Bag operations, bank interactions, item movements, container state tracking
+**Last Updated:** October 26, 2025
+**Testing:** Bag operations, bank interactions, item movements, container state tracking, ultra-minimal optimization
 
 ---
 
@@ -14,14 +14,14 @@
 ### Events That Fired During Testing
 | Event | Fired? | Frequency | Notes |
 |-------|--------|-----------|-------|
-| `BAG_UPDATE` | ✅ | 1-12× per operation | **Most reliable for bag changes** |
-| `BAG_UPDATE_DELAYED` | ✅ | 1-2× per operation | Signals completion |
+| `BAG_UPDATE` | ✅ | 1-12× per operation | Reliable but with spam (use BAG_UPDATE_DELAYED instead) |
+| `BAG_UPDATE_DELAYED` | ✅ | 1-2× per operation | **Optimal - covers ALL operations** |
 | `PLAYERBANKSLOTS_CHANGED` | ✅ | 1× per bank slot | **Required for bank container (ID:-1)** |
-| `ITEM_LOCK_CHANGED` | ✅ | 2-4× per move | Tracks pickup/placement |
-| `ITEM_PUSH` | ✅ | 1× per new item | NEW items only (not moves) |
+| `ITEM_LOCK_CHANGED` | ✅ | 2-4× per move | Redundant - overwritten by BAG_UPDATE_DELAYED |
+| `ITEM_PUSH` | ✅ | 1× per new item | **Uses internal bagId mapping: 31-34 → UI bags 1-4** |
 | `BAG_NEW_ITEMS_UPDATED` | ✅ | 1× per ITEM_PUSH | Always follows ITEM_PUSH |
 | `BAG_CONTAINER_UPDATE` | ✅ | 1× on login | Container-wide refresh |
-| `UNIT_INVENTORY_CHANGED` | ✅ | 1× per operation | Stack operations, deletions |
+| `UNIT_INVENTORY_CHANGED` | ✅ | 1× per operation | Redundant - BAG_UPDATE_DELAYED covers deletions |
 | `BANKFRAME_OPENED` | ✅ | 1× per bank open | Bank window opened |
 | `BANKFRAME_CLOSED` | ✅ | 1× per bank close | Bank window closed |
 | `BAG_UPDATE_COOLDOWN` | ✅ | 1× per consumable | Item consumption |
@@ -40,12 +40,46 @@
 ### Hooks That Fired During Testing
 | Hook | Fired? | Frequency | Notes |
 |------|--------|-----------|-------|
-| `ToggleBag` | ✅ | 1× per bag toggle | **Only way to detect bag open/close** |
-| `ToggleBackpack` | ✅ | 1× per backpack toggle | Fires with ToggleBag(0) |
-| `OpenBag` | ✅ | 1× per bag open | System-initiated opens |
-| `CloseBag` | ✅ | 1× per bag close | System-initiated closes |
-| `OpenAllBags` | ✅ | 1× per system open | Vendor, bank, mailbox |
-| `CloseAllBags` | ✅ | 1× per system close | System-initiated |
+| `ToggleBag` | ✅ | 1× per bag toggle | **Essential - User operations + system backpack** |
+| `ToggleBackpack` | ✅ | 1× per backpack toggle | **Redundant** - Always fires with ToggleBag(0) |
+| `OpenBag` | ✅ | 1× per bag open | **Essential - System operations bags 1-4** |
+| `CloseBag` | ✅ | 1× per bag close | **Optional** - Only needed if tracking closes |
+| `OpenAllBags` | ✅ | 1× per system open | **Redundant** - Fires after individual OpenBag calls |
+| `CloseAllBags` | ✅ | 1× per system close | **Optional** - Only needed if tracking closes |
+
+### Hook Coverage Analysis (NEW - October 2025)
+| **User Action** | **ToggleBag** | **ToggleBackpack** | **OpenBag** | **OpenAllBags** | **CloseBag** |
+|-----------------|---------------|-------------------|-------------|-----------------|--------------|
+| **Click backpack icon** | ✅ (bagId=0) | ✅ | ❌ | ❌ | ❌ |
+| **Click bag 1-4 icon** | ✅ (bagId=1-4) | ❌ | ❌ | ❌ | ❌ |
+| **Press B key (open all)** | ✅ (bagId=0) | ✅ | ✅ (bagId=1-4) | ✅ | ❌ |
+| **Press B key (close all)** | ❌ | ❌ | ❌ | ❌ | ✅ (bagId=1-4) |
+| **Talk to vendor** | ✅ (bagId=0) | ✅ | ✅ (bagId=1-4) | ✅ | ❌ |
+| **Walk away from vendor** | ❌ | ❌ | ❌ | ❌ | ✅ (bagId=1-4) |
+
+### Optimal Hook Strategy (NEW - October 2025)
+**For bag opening detection (most common use case), only 2 hooks are needed:**
+
+```lua
+-- Hook 1: Handles ALL backpack + user individual bags
+hooksecurefunc("ToggleBag", function(bagId)
+    if IsBagOpen(bagId) then
+        processBagOpen(bagId)
+    end
+end)
+
+-- Hook 2: Handles system operations for bags 1-4
+hooksecurefunc("OpenBag", function(bagId)
+    if bagId >= 1 and bagId <= NUM_BAG_SLOTS and IsBagOpen(bagId) then
+        processBagOpen(bagId)
+    end
+end)
+```
+
+**Eliminated hooks (redundant for opening detection):**
+- ❌ `ToggleBackpack` - Always fires with ToggleBag(0), adds no value
+- ❌ `OpenAllBags` - Always fires after individual OpenBag calls, adds no value
+- ❌ `CloseBag/CloseAllBags` - Only needed if tracking bag closes
 
 ### Tests Performed Headlines
 1. **Login/Reload** - Bag initialization (backpack special case)
@@ -58,35 +92,58 @@
 8. **Mail Item Retrieval** - Auction house mail with Bolt of Linen Cloth
 9. **Auction Creation** - Item removal for Linen Cloth auction
 10. **Cross-System Integration** - Perfect coordination with merchant, mail, auction systems
+11. **Hook Coverage Analysis** - Comprehensive testing of all 6 bag hooks (NEW - October 2025)
+12. **Individual Bag Operations** - Click testing for each bag 0-4 (NEW - October 2025)
+13. **System Operations** - Vendor, bank, mailbox hook behavior (NEW - October 2025)
+14. **Hook Optimization** - Minimal 2-hook solution validation (NEW - October 2025)
 
 ---
 
 ## Quick Decision Guide
 
-### Event Reliability for AI Decision Making
+### Event Reliability for AI Decision Making (UPDATED - October 2025)
 | Event | Reliability | Performance | Best Use Case |
 |-------|-------------|-------------|---------------|
-| `BAG_UPDATE` | 100% | Medium | ✅ **PRIMARY** - Bag content changes (with spam filtering) |
+| `BAG_UPDATE_DELAYED` | 100% | ✅ **OPTIMAL** | ✅ **ULTRA-MINIMAL** - ALL bag operations |
 | `PLAYERBANKSLOTS_CHANGED` | 100% | Low | ✅ **Required** - Bank container (ID:-1) changes |
-| `BAG_UPDATE_DELAYED` | 100% | Low | ✅ Operation completion detection |
-| `ITEM_PUSH` | 100% | Low | ✅ NEW item detection (not moves) |
 | `BANKFRAME_OPENED/CLOSED` | 100% | Low | ✅ Bank window state |
-| `BAG_UPDATE` (bank operations) | 100% | Terrible | ❌ **66-71% spam** (duplicate events) |
+| `BAG_UPDATE` | 100% | Medium | ❌ **Redundant** - Use BAG_UPDATE_DELAYED instead |
+| `ITEM_PUSH` | 100% | Low | ❌ **Redundant** - BAG_UPDATE_DELAYED covers new items |
+| `ITEM_LOCK_CHANGED` | 100% | Low | ❌ **Redundant** - Slot updates overwritten by bag updates |
+| `UNIT_INVENTORY_CHANGED` | 100% | Medium | ❌ **Redundant** - BAG_UPDATE_DELAYED covers deletions |
 
-### Use Case → Best Event Mapping
-- **Track bag content changes:** `BAG_UPDATE` (with duplicate filtering required)
-- **Detect bag open/close:** **Hooks only** (BAG_OPEN/CLOSED don't work)
+### Ultra-Minimal Use Case Mapping (NEW - October 2025)
+- **Track ALL bag operations:** `BAG_UPDATE_DELAYED` (moves, splits, deletions, new items)
+- **Detect bag opens:** `ToggleBag` + `OpenBag` hooks (complete coverage)
 - **Monitor bank container:** `PLAYERBANKSLOTS_CHANGED` (ID:-1 only)
-- **Detect new items:** `ITEM_PUSH` (excludes moves and buybacks)
-- **Track operation completion:** `BAG_UPDATE_DELAYED`
+- **Login initialization:** `PLAYER_ENTERING_WORLD`
+- **❌ Everything else is redundant complexity**
+
+### Hook Efficiency Rankings (NEW - October 2025)
+| Hook | Efficiency | Coverage | Recommendation |
+|------|------------|----------|----------------|
+| `ToggleBag` | ✅ Perfect | User ops + system backpack | ✅ **Essential** |
+| `OpenBag` | ✅ Perfect | System ops bags 1-4 | ✅ **Essential** |
+| `ToggleBackpack` | ❌ Redundant | Always with ToggleBag(0) | ❌ Skip |
+| `OpenAllBags` | ❌ Redundant | After individual OpenBag | ❌ Skip |
+| `CloseBag` | ⚠️ Optional | Close operations only | ⚠️ If needed |
 - **Monitor bank window:** `BANKFRAME_OPENED/CLOSED`
 
-### Critical AI Rules
+### Critical AI Rules (UPDATED - October 2025)
+- **Use ONLY BAG_UPDATE_DELAYED for bag operations** (covers everything, no redundancy)
+- **BAG_UPDATE_DELAYED(bagId=nil) means stack operation** (update all open bags)
+- **BAG_UPDATE_DELAYED(bagId=specific) means single bag operation** (update only that bag)
 - **BAG_OPEN/BAG_CLOSED events don't work** (use hooks for bag state)
 - **Bank container (ID:-1) uses different event** (PLAYERBANKSLOTS_CHANGED)
-- **Backpack doesn't fire BAG_UPDATE on login** (manual scan required)
-- **Bank operations create massive spam** (66-71% duplicate events)
-- **Content comparison required** (identical BAG_UPDATE events fire repeatedly)
+- **Slot-level optimizations are redundant** (bag-level events overwrite them anyway)
+- **Simplicity beats complexity** (2 events work better than 4+ events)
+
+### Hook Optimization Rules (NEW - October 2025)
+- **ToggleBag covers user operations + system backpack** (essential)
+- **OpenBag covers system operations for bags 1-4** (essential)
+- **ToggleBackpack is always redundant** with ToggleBag(0) (skip)
+- **OpenAllBags is always redundant** with individual OpenBag calls (skip)
+- **Close hooks only needed if tracking bag closes** (usually skip)
 
 ---
 
@@ -100,6 +157,35 @@
 | `1-4` | Bags | Varies | `BAG_UPDATE` | Regular bags |
 | `5-10` | Bank Bags | Varies | `BAG_UPDATE` | Like regular bags |
 
+### ITEM_PUSH Internal Bag ID Mapping
+**Critical Discovery:** `ITEM_PUSH` uses WoW's internal bag numbering system, not UI bag IDs:
+
+| ITEM_PUSH bagId | UI Bag ID | Bag Type | Mapping Required |
+|-----------------|-----------|----------|------------------|
+| `0` | `0` | Backpack | Direct mapping |
+| `31` | `1` | Bag 1 | **Subtract 30** |
+| `32` | `2` | Bag 2 | **Subtract 30** |
+| `33` | `3` | Bag 3 | **Subtract 30** |
+| `34` | `4` | Bag 4 | **Subtract 30** |
+
+**Implementation Pattern:**
+```lua
+if event == "ITEM_PUSH" then
+    local internalBagId, iconFileID = ...
+    local uiBagId = nil
+    
+    if internalBagId == 0 then
+        uiBagId = 0  -- Backpack
+    elseif internalBagId >= 31 and internalBagId <= 34 then
+        uiBagId = internalBagId - 30  -- Bags 1-4: 31→1, 32→2, 33→3, 34→4
+    end
+    
+    if uiBagId and IsBagOpen(uiBagId) then
+        processBagContent(uiBagId)
+    end
+end
+```
+
 ---
 
 ## Event Sequence Patterns
@@ -108,12 +194,28 @@
 ```
 Login: BAG_UPDATE (bags 1-4, 5-10) → BAG_CONTAINER_UPDATE → PLAYER_ENTERING_WORLD → BAG_UPDATE_DELAYED
 Item Move: ITEM_LOCK_CHANGED (pickup) → ITEM_LOCK_CHANGED (placement) → BAG_UPDATE → BAG_UPDATE_DELAYED
+Stack Split: ITEM_LOCK_CHANGED (pickup) → ITEM_LOCK_CHANGED (placement) → BAG_UPDATE_DELAYED(bagId=nil)
 New Item: ITEM_PUSH → BAG_NEW_ITEMS_UPDATED → BAG_UPDATE → BAG_UPDATE_DELAYED
 Bank Operation: PLAYERBANKSLOTS_CHANGED → BAG_UPDATE (spam) → BAG_UPDATE_DELAYED
 Merchant Purchase: PLAYER_MONEY → ITEM_PUSH → CHAT_MSG_LOOT → BAG_UPDATE (+430ms) → BAG_UPDATE_DELAYED
 Mail Retrieval: ITEM_PUSH → CHAT_MSG_LOOT → MAIL_INBOX_UPDATE → BAG_UPDATE (+734ms) → BAG_UPDATE_DELAYED (async)
 Auction Creation: ITEM_LOCK_CHANGED → ITEM_UNLOCKED → BAG_UPDATE → BAG_UPDATE_DELAYED
 ```
+
+**Key Insight:** In all sequences, `BAG_UPDATE_DELAYED` is the final event that processes complete state. Earlier events (`ITEM_LOCK_CHANGED`, `ITEM_PUSH`) provide redundant intermediate updates that get overwritten.
+
+### Event Detail Analysis
+**ITEM_LOCK_CHANGED Precision:**
+- Provides exact `bagId` and `slotId` for pickup/placement operations
+- Fires twice per item swap: pickup from source, placement to destination
+- Stack splits: Only tracks source slot (pickup + placement), destination slot unknown
+- **Limitation:** Cannot detect destination slot in stack operations
+
+**ITEM_PUSH Bag ID Mapping:**
+- Uses internal WoW bag numbering (31-34 for UI bags 1-4)
+- Requires mapping: `uiBagId = internalBagId - 30` for bags 1-4
+- Only fires for genuinely NEW items (not moves or buybacks)
+- **Limitation:** Complex mapping required, redundant with BAG_UPDATE_DELAYED
 
 ### Bag Open/Close (Hook-based Only)
 ```
@@ -131,14 +233,18 @@ Single Bank Slot Change: PLAYERBANKSLOTS_CHANGED → BAG_UPDATE (backpack, dupli
 
 ## Performance Impact Summary
 
-| Operation | Total Events | Spam Events | Performance Impact |
-|-----------|--------------|-------------|-------------------|
-| Regular Bag Operations | 3-5 | None | Low |
-| Same-Bag Splits | 9 | BAG_UPDATE (×3 identical) | Medium |
-| Bank Operations | 12+ | BAG_UPDATE (×8+ duplicates) | **High** |
-| Cross-Bag Moves | 6-8 | BAG_UPDATE_DELAYED (×2) | Medium |
+| Operation | Total Events | Useful Events | Redundant Events | Optimal Strategy |
+|-----------|--------------|---------------|------------------|------------------|
+| Regular Bag Operations | 3-5 | 1 (BAG_UPDATE_DELAYED) | 2-4 (ITEM_LOCK_CHANGED, etc.) | Use only BAG_UPDATE_DELAYED |
+| Same-Bag Splits | 9 | 1 (BAG_UPDATE_DELAYED) | 8 (BAG_UPDATE ×3, ITEM_LOCK_CHANGED ×2, etc.) | Use only BAG_UPDATE_DELAYED |
+| Bank Operations | 12+ | 1-4 (PLAYERBANKSLOTS_CHANGED, BAG_UPDATE_DELAYED) | 8+ (duplicate BAG_UPDATE) | Use PLAYERBANKSLOTS_CHANGED + BAG_UPDATE_DELAYED |
+| Cross-Bag Moves | 6-8 | 2 (BAG_UPDATE_DELAYED ×2) | 4-6 (ITEM_LOCK_CHANGED, BAG_UPDATE) | Use only BAG_UPDATE_DELAYED |
+
+**Critical Discovery:** Most events in each sequence are redundant. `BAG_UPDATE_DELAYED` alone provides complete coverage for all bag operations.
 
 **Critical:** Bank operations generate **66-71% spam** (duplicate BAG_UPDATE events on unchanged bags).
+
+**Key Discovery:** Slot-level optimizations (`ITEM_LOCK_CHANGED`, `ITEM_PUSH`) are redundant when `BAG_UPDATE_DELAYED` processes entire bags anyway. Stack operations always fire `BAG_UPDATE_DELAYED(bagId=nil)` requiring all-bag updates regardless of slot-level precision attempts.
 
 ---
 
@@ -200,9 +306,69 @@ end
 
 ## Implementation Patterns
 
-### ✅ Recommended (Handles All Edge Cases)
+### ✅ Recommended - Minimal Hook Approach (NEW - October 2025)
 ```lua
--- Bag tracking - OPTIMAL PATTERN
+-- OPTIMAL: 2-Hook Solution for Bag Opening Detection
+-- Covers 100% of scenarios with minimal overhead
+
+-- Hook 1: User operations + system backpack
+hooksecurefunc("ToggleBag", function(bagId)
+    if IsBagOpen(bagId) then
+        processBagOpen(bagId)  -- Only when opening
+    end
+end)
+
+-- Hook 2: System operations for bags 1-4
+if OpenBag then
+    hooksecurefunc("OpenBag", function(bagId)
+        if bagId >= 1 and bagId <= NUM_BAG_SLOTS and IsBagOpen(bagId) then
+            processBagOpen(bagId)  -- Only when opening
+        end
+    end)
+end
+
+-- Result: Complete coverage, zero redundancy, optimal performance
+```
+
+### ✅ OPTIMAL - Ultra-Minimal Event Approach
+```lua
+-- ULTIMATE: 2-Event Solution for ALL Bag Operations
+-- Discovered through redundancy analysis - slot-level optimizations are unnecessary
+
+local eventFrame = CreateFrame("Frame")
+eventFrame:RegisterEvent("BAG_UPDATE_DELAYED")
+eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+
+eventFrame:SetScript("OnEvent", function(_, event, bagId)
+    if event == "BAG_UPDATE_DELAYED" then
+        if bagId and bagId >= 0 and bagId <= NUM_BAG_SLOTS and IsBagOpen(bagId) then
+            -- Specific bag operation - update only that bag
+            processBagContent(bagId)
+        elseif bagId == nil then
+            -- Stack operation or deletion - update all open bags
+            for checkBagId = 0, NUM_BAG_SLOTS do
+                if IsBagOpen(checkBagId) then
+                    processBagContent(checkBagId)
+                end
+            end
+        end
+    elseif event == "PLAYER_ENTERING_WORLD" then
+        -- Login initialization
+        for bagId = 0, NUM_BAG_SLOTS do
+            if IsBagOpen(bagId) then
+                processBagContent(bagId)
+            end
+        end
+    end
+end)
+
+-- Result: Complete coverage, zero redundancy, maximum simplicity
+-- Covers: moves, splits, deletions, new items, login - everything
+```
+
+### ✅ Legacy - Full Event Tracking (High Overhead)
+```lua
+-- BAG_UPDATE with spam filtering - Original approach
 local eventFrame = CreateFrame("Frame")
 eventFrame:RegisterEvent("BAG_UPDATE")
 eventFrame:RegisterEvent("PLAYERBANKSLOTS_CHANGED")
@@ -458,3 +624,26 @@ end
 - Implement aggressive spam filtering for bank operations
 
 **The key insight: Bag events are reliable for content tracking but require sophisticated duplicate filtering and hook-based state management due to Classic Era's event system limitations.**
+
+---
+
+## Hook Optimization Summary (NEW - October 2025)
+
+**After comprehensive hook investigation, the optimal approach for bag opening detection:**
+
+✅ **Minimal 2-Hook Solution (67% reduction):**
+- `ToggleBag` - Handles user operations + system backpack
+- `OpenBag` - Handles system operations for bags 1-4
+- **Result:** Complete coverage, zero redundancy, optimal performance
+
+❌ **Eliminated Redundant Hooks:**
+- `ToggleBackpack` - Always fires with ToggleBag(0), adds no value
+- `OpenAllBags` - Always fires after individual OpenBag calls, adds no value
+- `CloseBag/CloseAllBags` - Only needed if tracking bag closes (rare use case)
+
+🎯 **Performance Impact:**
+- **6 hooks → 2 hooks** (67% code reduction)
+- **Zero duplicate processing** (each bag processed exactly once)
+- **Complete scenario coverage** (user clicks, system operations, all bag types)
+
+**Updated recommendation: Use the minimal 2-hook approach for bag opening detection, achieving the same functionality with significantly less complexity and overhead.**
