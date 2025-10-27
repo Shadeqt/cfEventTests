@@ -261,6 +261,32 @@ local numSlots = GetContainerNumSlots(bagId)  -- May not exist
 local texture, itemCount, locked, quality, readable, lootable, itemLink = GetContainerItemInfo(bagId, slotId)
 ```
 
+### WoW Constants for Bag System
+```lua
+-- Bag system constants (used in cfItemColors)
+local NUM_BAG_SLOTS = NUM_BAG_SLOTS                    -- 4 (regular bag slots 1-4)
+local NUM_BANKBAGSLOTS = NUM_BANKBAGSLOTS              -- 6 (bank bag slots 5-10)
+local NUM_BAG_BANK_SLOTS = NUM_BAG_SLOTS + NUM_BANKBAGSLOTS  -- Total: 10
+
+-- Container ID reference for bag operations
+local BANK_CONTAINER = BANK_CONTAINER                   -- -1 (bank container ID)
+
+-- Button reference patterns for bag item coloring
+for bagId = 0, NUM_BAG_BANK_SLOTS do
+    if IsBagOpen(bagId) then
+        local frameId = IsBagOpen(bagId)
+        local containerFrame = _G["ContainerFrame" .. frameId]
+        if containerFrame then
+            local containerFrameName = containerFrame:GetName()
+            for i = 1, containerFrame.size do
+                local bagItemButton = _G[containerFrameName .. "Item" .. i]
+                -- Apply item quality coloring to bagItemButton
+            end
+        end
+    end
+end
+```
+
 ### Bag State Detection (Critical - No Events Available)
 ```lua
 -- Method 1: Query current state

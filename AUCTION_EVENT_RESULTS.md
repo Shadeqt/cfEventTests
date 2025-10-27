@@ -166,6 +166,29 @@ local numBids = GetNumAuctionItems("bidder")
 local numOwned = GetNumAuctionItems("owner")
 ```
 
+### WoW Constants for Auction House UI
+```lua
+-- Auction house display constants (used in cfItemColors)
+local NUM_BROWSE_TO_DISPLAY = NUM_BROWSE_TO_DISPLAY or 8    -- Browse tab items per page
+local NUM_BIDS_TO_DISPLAY = NUM_BIDS_TO_DISPLAY or 8        -- Bids tab items per page  
+local NUM_AUCTIONS_TO_DISPLAY = NUM_AUCTIONS_TO_DISPLAY or 8 -- Auctions tab items per page
+
+-- Button reference patterns for item coloring
+for i = 1, NUM_BROWSE_TO_DISPLAY do
+    local button = _G["BrowseButton" .. i]           -- Browse tab item buttons
+end
+
+for i = 1, NUM_BIDS_TO_DISPLAY do
+    local button = _G["BidButton" .. i]              -- Bids tab item buttons
+end
+
+for i = 1, NUM_AUCTIONS_TO_DISPLAY do
+    local button = _G["AuctionsButton" .. i]         -- Auctions tab item buttons
+end
+
+local sellItemButton = _G["AuctionsItemButton"]      -- Sell item slot button
+```
+
 ### Money and Item Tracking
 ```lua
 -- Money tracking

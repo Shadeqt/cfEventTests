@@ -46,6 +46,11 @@
 | `SetOptOutOfLoot` | ✅ | 2× per test | **Loot eligibility toggle working** |
 | `CloseLoot` | ✅ | 2× per close | Loot window closing |
 
+### Loot UI Hook (Used in cfItemColors)
+| Hook | Purpose | Usage in cfItemColors |
+|------|---------|----------------------|
+| `LootFrame_UpdateButton` | Loot button updates | Updates individual loot slot button colors when loot window refreshes |
+
 ### Hooks That Did NOT Fire
 | Hook | Status | Reason |
 |------|--------|--------|

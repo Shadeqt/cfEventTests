@@ -135,6 +135,26 @@ end
 ClearInspectPlayer()
 ```
 
+### Inspect Equipment Slot System
+```lua
+-- Equipment slot names for inspect frame (used in cfItemColors)
+local EQUIPMENT_SLOTS = {
+    "Head", "Neck", "Shoulder", "Shirt", "Chest", "Waist", "Legs", "Feet", "Wrist", "Hands",
+    "Finger0", "Finger1", "Trinket0", "Trinket1", "Back", "MainHand", "SecondaryHand", "Ranged", "Tabard"
+}
+
+-- Button reference patterns for inspect equipment coloring
+for slotId = 1, #EQUIPMENT_SLOTS do
+    local slotName = EQUIPMENT_SLOTS[slotId]
+    local inspectButton = _G["Inspect" .. slotName .. "Slot"]
+    local inventorySlotId = GetInventorySlotInfo(slotName .. "Slot")
+    
+    -- Apply item quality coloring to inspectButton
+    local itemLink = GetInventoryItemLink("target", inventorySlotId)
+    -- Note: Requires INSPECT_READY event + 100ms delay for fresh data
+end
+```
+
 ### Equipment Data Access
 ```lua
 -- Equipment inspection (target must be inspected first)

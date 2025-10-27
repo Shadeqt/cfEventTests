@@ -50,6 +50,13 @@
 | `QuestInfo_Display` | ✅ | 1× per dialog | **CONFIRMED** - Quest info display |
 | `QuestFrameProgressItems_Update` | ✅ | Multiple per session | **CONFIRMED** - Progress dialog updates |
 
+### Quest UI Hooks (Used in cfItemColors)
+| Hook | Purpose | Usage in cfItemColors |
+|------|---------|----------------------|
+| `QuestInfo_Display` | Quest details at NPC | Updates quest reward item colors when viewing quest details |
+| `QuestLog_Update` | Quest log refresh | Updates quest log reward item colors when quest log changes |
+| `QuestFrameProgressItems_Update` | Progress dialog items | Updates required quest item colors in progress dialogs |
+
 ### Tests Performed Headlines
 1. **Login/Reload** - QUEST_LOG_UPDATE (3×) initialization
 2. **Accept Quest** - QUEST_DETAIL → QUEST_ACCEPTED flow (**"Oh Brother..." quest accepted**)

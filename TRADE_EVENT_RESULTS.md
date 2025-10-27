@@ -141,6 +141,23 @@ local name, texture, quantity, quality, enchantment, canTrade = GetTradeTargetIt
 local itemLink = GetTradeTargetItemLink(slot)
 ```
 
+### WoW Constants for Trade UI
+```lua
+-- Trade window constants (used in cfItemColors)
+local TRADE_SLOTS_PER_PLAYER = MAX_TRADE_ITEMS or 7  -- Max trade slots per player
+
+-- Button reference patterns for trade item coloring
+for i = 1, TRADE_SLOTS_PER_PLAYER do
+    local playerButton = _G["TradePlayerItem" .. i .. "ItemButton"]    -- Player trade buttons
+    local targetButton = _G["TradeRecipientItem" .. i .. "ItemButton"] -- Target trade buttons
+end
+
+-- Trade window events for item coloring (used in cfItemColors)
+-- TRADE_SHOW - Trade window opened
+-- TRADE_PLAYER_ITEM_CHANGED - Player's item changed in specific slot
+-- TRADE_TARGET_ITEM_CHANGED - Target's item changed in specific slot
+```
+
 ### Money Functions
 ```lua
 local playerMoney = GetPlayerTradeMoney()  -- Money player is offering

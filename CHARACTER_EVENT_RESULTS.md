@@ -140,6 +140,25 @@ local ammo0 = GetInventoryItemLink("player", 0)   -- Always nil in Classic Era
 local ammo20 = GetInventoryItemLink("player", 20) -- Always nil in Classic Era
 ```
 
+### Equipment Slot Constants and Button References
+```lua
+-- Equipment slot names (used in cfItemColors)
+local EQUIPMENT_SLOTS = {
+    "Head", "Neck", "Shoulder", "Shirt", "Chest", "Waist", "Legs", "Feet", "Wrist", "Hands",
+    "Finger0", "Finger1", "Trinket0", "Trinket1", "Back", "MainHand", "SecondaryHand", "Ranged", "Tabard"
+}
+
+-- Button reference patterns for equipment slot coloring
+for slotId = 1, #EQUIPMENT_SLOTS do
+    local equipmentButton = _G["Character" .. EQUIPMENT_SLOTS[slotId] .. "Slot"]
+    -- Apply item quality coloring to equipmentButton
+end
+
+-- Quality color system (used in cfItemColors)
+local QUALITY_COLORS = BAG_ITEM_QUALITY_COLORS
+QUALITY_COLORS[99] = {r = 1.0, g = 0.82, b = 0.0}  -- Special quest item quality
+```
+
 ### Item Level Functions (Tested)
 ```lua
 -- Average item level calculation (fires 3× per equipment change)

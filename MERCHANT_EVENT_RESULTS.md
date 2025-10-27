@@ -147,6 +147,22 @@ local itemLink = GetMerchantItemLink(index)
 local currentMoney = GetMoney()  -- In copper
 ```
 
+### WoW Constants for Merchant UI
+```lua
+-- Merchant display constants (used in cfItemColors)
+local MERCHANT_ITEMS_PER_PAGE = MERCHANT_ITEMS_PER_PAGE or 10  -- Items per merchant page
+local NUM_BUYBACK_SLOTS = 12                                   -- Buyback slots available
+
+-- Button reference patterns for merchant item coloring
+for i = 1, MERCHANT_ITEMS_PER_PAGE do
+    local merchantButton = _G["MerchantItem" .. i .. "ItemButton"]  -- Merchant tab buttons
+    local buybackButton = _G["MerchantItem" .. i .. "ItemButton"]   -- Buyback tab buttons (same pattern)
+end
+
+-- Special merchant buttons
+local buybackPreviewButton = _G["MerchantBuyBackItemItemButton"]    -- Buyback preview button
+```
+
 ### Merchant Transactions
 ```lua
 -- Purchase items

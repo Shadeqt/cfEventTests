@@ -160,6 +160,25 @@ local spellName, displayName, icon, startTime, endTime, isTradeSkill, castID, no
 local spellName, displayName, icon, startTime, endTime, isTradeSkill, notInterruptible, spellID = UnitChannelInfo("player")
 ```
 
+### Profession UI Constants and Button References
+```lua
+-- Profession window constants (used in cfItemColors)
+local NUM_REAGENT_SLOTS = 8  -- Maximum reagent slots per recipe
+
+-- Button reference patterns for profession item coloring
+local craftedItemButton = _G["TradeSkillSkillIcon"]           -- Crafted item icon button
+
+for i = 1, NUM_REAGENT_SLOTS do
+    local reagentButton = _G["TradeSkillReagent" .. i]        -- Reagent slot buttons
+end
+
+-- Hook for profession window updates (used in cfItemColors)
+hooksecurefunc("TradeSkillFrame_Update", function()
+    local selectedIndex = GetTradeSkillSelectionIndex()
+    -- Update crafted item and reagent colors based on selection
+end)
+```
+
 ### Trainer Services
 ```lua
 local numServices = GetNumTrainerServices()

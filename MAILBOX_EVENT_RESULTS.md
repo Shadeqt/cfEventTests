@@ -140,6 +140,27 @@ local name, itemTexture, count, quality, canUse = GetInboxItem(index, itemIndex)
 local itemLink = GetInboxItemLink(index, itemIndex)
 ```
 
+### WoW Constants for Mailbox UI
+```lua
+-- Mailbox display constants (used in cfItemColors)
+local INBOXITEMS_TO_DISPLAY = INBOXITEMS_TO_DISPLAY or 7      -- Mail items per inbox page
+local ATTACHMENTS_MAX_SEND = ATTACHMENTS_MAX_SEND or 12       -- Max attachments when sending
+local ATTACHMENTS_MAX_RECEIVE = ATTACHMENTS_MAX_RECEIVE or 16 -- Max attachments when receiving
+
+-- Button reference patterns for mail item coloring
+for i = 1, INBOXITEMS_TO_DISPLAY do
+    local inboxButton = _G["MailItem" .. i .. "Button"]       -- Inbox mail buttons
+end
+
+for i = 1, ATTACHMENTS_MAX_SEND do
+    local sendButton = _G["SendMailAttachment" .. i]          -- Send mail attachment buttons
+end
+
+for i = 1, ATTACHMENTS_MAX_RECEIVE do
+    local openButton = _G["OpenMailAttachmentButton" .. i]    -- Open mail attachment buttons
+end
+```
+
 ### Send Mail Functions
 ```lua
 -- Get send mail info
