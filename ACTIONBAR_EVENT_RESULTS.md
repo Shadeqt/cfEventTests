@@ -237,6 +237,30 @@ local icon, active, castable, cooldownStart, cooldownDuration = GetShapeshiftFor
 CastShapeshiftForm(index)
 ```
 
+### Frame Dimension Functions
+```lua
+-- Get frame dimensions
+local width = frame:GetWidth()   -- Returns frame width in pixels
+local height = frame:GetHeight() -- Returns frame height in pixels
+
+-- CRITICAL: Do NOT cache GetWidth() for buff/debuff cooldown frames
+-- Blizzard dynamically resizes these frames based on buff size
+-- Same frame object (e.g., TargetFrameBuff2Cooldown) can be 17px or 21px at different times
+-- Always call GetWidth() fresh when filtering by frame size
+
+-- Example: Filtering timers by minimum frame size
+if cooldownFrame:GetWidth() < MIN_FRAME_SIZE then
+    return  -- Don't show timer on small frames
+end
+```
+
+**Frame Width Caching Limitation (October 2025 Discovery):**
+- **Cannot cache:** Target/party/raid buff/debuff cooldown frames (dynamically resized by Blizzard)
+- **Pattern:** Same frame object reused for different sized buffs → width changes over time
+- **Symptom:** Cached width from small buff (17px) persists when large buff (21px) occupies same slot
+- **Solution:** Always call `GetWidth()` fresh - performance impact is minimal
+- **Safe to cache (untested):** Player action buttons, pet buttons, stance buttons (likely fixed size)
+
 ### Page Management
 ```lua
 -- Get current page (if function exists)
@@ -606,6 +630,223 @@ local originalSetVertexColor = icon.SetVertexColor
 icon.SetVertexColor = function() end  -- Block Blizzard calls
 -- Use originalSetVertexColor(icon, r, g, b) for actual coloring
 ```
+
+---
+
+## Advanced Hook Techniques
+
+### Metatable Hooking for Universal Frame Interception
+
+**Purpose:** Intercept method calls on ALL frame objects of a certain type without needing to know frame names in advance.
+
+**Use Case:** cfDurationsFresh uses this to intercept `SetCooldown()` calls on every cooldown frame in the game (action bars, buffs, debuffs, etc.) to add timer displays.
+
+#### How Metatable Hooks Work
+
+```lua
+-- Step 1: Get a reference cooldown frame (any will do)
+local ActionButton1Cooldown = _G["ActionButton1Cooldown"]
+
+-- Step 2: Access the shared metatable for all cooldown frames
+local cooldownMetatable = getmetatable(ActionButton1Cooldown).__index
+
+-- Step 3: Check if the method exists
+if cooldownMetatable and cooldownMetatable.SetCooldown then
+    -- Step 4: Store original method
+    local originalSetCooldown = cooldownMetatable.SetCooldown
+
+    -- Step 5: Replace with hooked version
+    cooldownMetatable.SetCooldown = function(cooldownFrame, startTime, duration)
+        -- Call original first (maintain Blizzard functionality)
+        originalSetCooldown(cooldownFrame, startTime, duration)
+
+        -- Your custom logic here
+        -- This runs for EVERY cooldown frame in the game automatically!
+        print("Cooldown set:", cooldownFrame:GetName(), duration)
+    end
+end
+```
+
+#### Why Metatable Hooks Are Powerful
+
+**Traditional Hook:**
+```lua
+-- Must hook each frame individually
+hooksecurefunc(ActionButton1Cooldown, "SetCooldown", myFunc)
+hooksecurefunc(ActionButton2Cooldown, "SetCooldown", myFunc)
+-- ... repeat for EVERY cooldown frame in the game (100+ frames)
+```
+
+**Metatable Hook:**
+```lua
+-- One hook intercepts ALL cooldown frames
+cooldownMetatable.SetCooldown = function(...) end
+-- Automatically works for: action bars, buffs, debuffs, pet abilities, items, etc.
+```
+
+#### Real-World Example: Timer Display System
+
+From cfDurationsFresh implementation:
+
+```lua
+local cooldownFrameMetatable = getmetatable(_G["ActionButton1Cooldown"]).__index
+
+if cooldownFrameMetatable and cooldownFrameMetatable.SetCooldown then
+    local originalSetCooldown = cooldownFrameMetatable.SetCooldown
+
+    cooldownFrameMetatable.SetCooldown = function(cooldownFrame, startTime, duration)
+        -- Maintain swipe animation
+        originalSetCooldown(cooldownFrame, startTime, duration)
+
+        -- Invalidate old timers (versioning system)
+        cooldownFrame.cfTimerId = (cooldownFrame.cfTimerId or 0) + 1
+        local currentTimerId = cooldownFrame.cfTimerId
+
+        -- Filter tiny frames or short cooldowns
+        if cooldownFrame:GetWidth() < 17.5 or startTime <= 0 or duration <= 1.75 then
+            if cooldownFrame.cfTimer then
+                cooldownFrame.cfTimer:SetText("")
+            end
+            return
+        end
+
+        -- Create timer text (once per frame)
+        if not cooldownFrame.cfTimer then
+            cooldownFrame.cfTimer = cooldownFrame:CreateFontString(nil, "OVERLAY")
+            cooldownFrame.cfTimer:SetFont("Fonts\\FRIZQT__.TTF", 12, "OUTLINE")
+            cooldownFrame.cfTimer:SetPoint("CENTER", 0, 0)
+        end
+
+        -- Start smart timer updates
+        updateTimer(cooldownFrame, startTime, duration, currentTimerId)
+    end
+end
+```
+
+#### Timer Versioning System
+
+**Problem:** When a new cooldown starts, old timer updates must stop running.
+
+**Solution:** Use incrementing timer IDs:
+
+```lua
+-- Each SetCooldown call increments the ID
+cooldownFrame.cfTimerId = (cooldownFrame.cfTimerId or 0) + 1
+local currentTimerId = cooldownFrame.cfTimerId
+
+-- Timer update function checks if it's still current
+local function updateTimer(cooldownFrame, startTime, duration, timerId)
+    if cooldownFrame.cfTimerId ~= timerId then
+        return  -- Old timer, stop running
+    end
+
+    -- Update display
+    local remaining = startTime + duration - GetTime()
+    cooldownFrame.cfTimer:SetText(formatTime(remaining))
+
+    -- Schedule next update with same timerId
+    C_Timer.After(delay, function()
+        updateTimer(cooldownFrame, startTime, duration, timerId)
+    end)
+end
+```
+
+**Why This Works:**
+- New cooldown → `cfTimerId = 2`
+- Old timer still running with `timerId = 1`
+- Old timer checks: `cfTimerId (2) ~= timerId (1)` → stops immediately
+- New timer checks: `cfTimerId (2) == timerId (2)` → continues running
+
+#### Performance Optimizations for Timer Displays
+
+**1. Pre-cache Timer Strings (October 2025)**
+
+```lua
+-- Cache common display strings at load time
+local cachedTimerStrings = {}
+for i = 0, 59 do
+    cachedTimerStrings[i] = tostring(i)                 -- "0" to "59"
+    cachedTimerStrings[i + 100] = tostring(i) .. "m"    -- "0m" to "59m"
+end
+
+-- Use cached strings for display
+local function formatTime(seconds)
+    if seconds < 60 then
+        local s = seconds - seconds % 1  -- Fast floor
+        return cachedTimerStrings[s] or string.format("%.0f", seconds)
+    elseif seconds < 3600 then
+        local m = (seconds / 60) - (seconds / 60) % 1
+        return cachedTimerStrings[m + 100] or string.format("%.0fm", seconds / 60)
+    else
+        return string.format("%.0fh", seconds / 3600)  -- Hours (rare)
+    end
+end
+```
+
+**Benefits:**
+- Eliminates string creation for 99% of timer updates
+- Covers 0-59 seconds and 0-59 minutes
+- Fallback to string.format for edge cases
+
+**2. Smart Throttled Updates (Modulo-Based)**
+
+Instead of updating every frame, calculate exact delay until display changes:
+
+```lua
+local function calculateNextUpdateDelay(remainingSeconds)
+    local SAFETY_MARGIN = 0.05
+
+    if remainingSeconds < 60 then
+        return (remainingSeconds % 1) + SAFETY_MARGIN          -- Update every second
+    elseif remainingSeconds < 3600 then
+        return (remainingSeconds % 60) + SAFETY_MARGIN         -- Update every minute
+    elseif remainingSeconds < 86400 then
+        return (remainingSeconds % 3600) + SAFETY_MARGIN       -- Update every hour
+    else
+        return (remainingSeconds % 86400) + SAFETY_MARGIN      -- Update every day
+    end
+end
+```
+
+**Example:** 65-second cooldown
+- 0-59s: Updates 60 times (every second)
+- 60-65s: Updates 1 time (at 60s mark)
+- **Total: 61 updates instead of ~1300 updates (at 60fps)**
+
+**3. Localize API Calls**
+
+```lua
+-- At module scope
+local _GetTime = GetTime
+local _C_Timer_After = C_Timer.After
+local _string_format = string.format
+
+-- In hot code paths, use localized versions
+local remaining = startTime + duration - _GetTime()  -- Faster than GetTime()
+```
+
+**4. Cache Inverse Division Constants**
+
+```lua
+-- Multiplication is faster than division in Lua
+local INV_SECONDS_PER_MINUTE = 1 / 60
+local INV_SECONDS_PER_HOUR = 1 / 3600
+
+-- Use multiplication instead of division
+local minutes = seconds * INV_SECONDS_PER_MINUTE  -- Faster than: seconds / 60
+```
+
+#### Metatable Hook Limitations
+
+**Cannot cache `GetWidth()` for dynamic frames:**
+- Buff/debuff cooldown frames change size dynamically
+- Same frame object (`TargetFrameBuff2Cooldown`) can be 17px or 21px at different times
+- Must call `GetWidth()` fresh every time (see Frame Dimension Functions section)
+
+**Must respect Blizzard's method signatures:**
+- Keep original parameter order
+- Call original method first to maintain functionality
+- Don't break protected functionality
 
 ### PetActionBarFrame Timer Disable Technique ✅
 **Critical Discovery:** `PetActionBarFrame.rangeTimer = nil`
