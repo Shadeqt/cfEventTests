@@ -184,6 +184,55 @@ end)
 local numServices = GetNumTrainerServices()
 local serviceName, serviceSubText, serviceType = GetTrainerServiceInfo(index)
 local cost = GetTrainerServiceCost(index)
+local selectedIndex = GetTrainerSelectionIndex()  -- Returns currently selected service
+```
+
+### ClassTrainer Item Link Extraction (Tooltip Scanning Method)
+**Problem:** No direct API exists (e.g., `GetTrainerServiceItemLink()` returns nil in Classic Era)
+
+**Solution:** Use tooltip scanning to extract item links from trainer services
+
+```lua
+-- Get item link for currently selected trainer service
+local selectedIndex = GetTrainerSelectionIndex()
+
+-- Create fresh tooltip (MUST be unique each time to avoid caching issues)
+local scanTooltip = CreateFrame("GameTooltip", "UniqueTooltipName_"..selectedIndex, nil, "GameTooltipTemplate")
+scanTooltip:SetOwner(WorldFrame, "ANCHOR_NONE")
+
+if scanTooltip.SetTrainerService then
+    scanTooltip:SetTrainerService(selectedIndex)
+
+    -- Extract item link directly from tooltip
+    local _, itemLink = scanTooltip:GetItem()
+
+    if itemLink then
+        -- Successfully got item link (e.g., "[Rough Boomstick]")
+        local _, _, quality = GetItemInfo(itemLink)
+        -- Use itemLink for coloring, quality checks, etc.
+    else
+        -- Service doesn't create an item (e.g., spell-only services)
+    end
+end
+```
+
+**Critical Notes:**
+- ❌ `GetTrainerServiceItemLink(index)` does NOT exist in Classic Era
+- ❌ `GetItemInfo(itemName)` returns nil (item cache not populated)
+- ✅ `tooltip:GetItem()` works and returns full item link
+- ⚠️ **Must create fresh tooltip each time** (reusing tooltips causes caching issues)
+- ⚠️ Use unique tooltip names (e.g., include selectedIndex) to avoid conflicts
+
+**ClassTrainer Button Reference:**
+```lua
+-- Single reusable button (not numbered like reagents)
+local classTrainerIconButton = _G["ClassTrainerSkillIcon"]
+
+-- Hook for trainer window updates
+hooksecurefunc("ClassTrainerFrame_Update", function()
+    local selectedIndex = GetTrainerSelectionIndex()
+    -- Update icon border based on item quality
+end)
 ```
 
 ### Enchanting (CRAFT_* events - not tested but documented)

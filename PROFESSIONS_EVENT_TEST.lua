@@ -1109,4 +1109,199 @@ SlashCmdList["TESTPROFESSIONHOOKS"] = testProfessionHooks
 print("|cff00ff00Profession investigation ready - events will print to chat|r")
 print("|cff00ff00Open any profession window, trainer, and perform crafting to test events|r")
 print("|cff00ff00Use /testprofessionhooks to test profession function hooks|r")
+print("|cff00ff00Use /testclasstrainer or /testct to test ClassTrainer APIs|r")
 print("|cff00ff00Classic Era (1.15) compatible version loaded|r")
+
+-- ClassTrainer API test
+
+local function testClassTrainerAPIs()
+	if not ClassTrainerFrame or not ClassTrainerFrame:IsShown() then
+		print("|cffff0000ClassTrainer window must be open! Open a class trainer first.|r")
+		return
+	end
+
+	print("|cff00ff00=== TESTING CLASSTRAINER APIs ===|r")
+
+	-- Test 1: GetNumTrainerServices
+	local numServices = GetNumTrainerServices()
+	print("|cffffaa00GetNumTrainerServices():|r " .. tostring(numServices))
+
+	if not numServices or numServices == 0 then
+		print("|cffff0000No trainer services available|r")
+		return
+	end
+
+	-- Test first 5 services (or all if less than 5)
+	local testCount = math.min(5, numServices)
+	print("|cffffaa00Testing first " .. testCount .. " services:|r")
+
+	for i = 1, testCount do
+		print("\n|cff00ffff--- Service " .. i .. " ---|r")
+
+		-- Test 2: GetTrainerServiceInfo
+		local serviceName, serviceSubText, serviceType, isExpanded = GetTrainerServiceInfo(i)
+		print("  GetTrainerServiceInfo(" .. i .. "):")
+		print("    name: " .. tostring(serviceName))
+		print("    subText: " .. tostring(serviceSubText))
+		print("    type: " .. tostring(serviceType))
+		print("    expanded: " .. tostring(isExpanded))
+
+		-- Test 3: GetTrainerServiceCost
+		if GetTrainerServiceCost then
+			local cost = GetTrainerServiceCost(i)
+			print("  GetTrainerServiceCost(" .. i .. "): " .. tostring(cost))
+		end
+
+		-- Test 4: Try to find item link API (these might not exist)
+		local possibleAPIs = {
+			"GetTrainerServiceItemLink",
+			"GetTrainerServiceItem",
+			"GetTrainerItemLink",
+			"GetTrainerServiceSkillLine",
+			"GetTrainerServiceDescription",
+		}
+
+		for _, apiName in ipairs(possibleAPIs) do
+			if _G[apiName] then
+				local result = _G[apiName](i)
+				print("  " .. apiName .. "(" .. i .. "): " .. tostring(result))
+			end
+		end
+
+		-- Try to get spell/recipe info
+		if GetTrainerServiceSkillReq then
+			local req = GetTrainerServiceSkillReq(i)
+			print("  GetTrainerServiceSkillReq(" .. i .. "): " .. tostring(req))
+		end
+
+		-- Test 5: Check if there's a button for this service
+		local buttonName = "ClassTrainerSkillIcon" .. i
+		local button = _G[buttonName]
+		if button then
+			print("  Button found: " .. buttonName)
+			print("    :GetID() = " .. tostring(button:GetID()))
+			print("    :IsShown() = " .. tostring(button:IsShown()))
+
+			-- Check for icon texture
+			if button.icon then
+				print("    button.icon exists")
+				local texture = button.icon:GetTexture()
+				print("    icon texture: " .. tostring(texture))
+			end
+
+			-- Check for other properties
+			local iconTexture = _G[buttonName .. "IconTexture"]
+			if iconTexture then
+				print("    IconTexture child exists")
+			end
+		else
+			print("  No button found with name: " .. buttonName)
+		end
+	end
+
+	-- Test 6: Check ClassTrainerDetailScrollChildFrame children
+	print("\n|cff00ffff--- ClassTrainerDetailScrollChildFrame Children ---|r")
+	if ClassTrainerDetailScrollChildFrame then
+		local children = {ClassTrainerDetailScrollChildFrame:GetChildren()}
+		print("  Number of children: " .. #children)
+
+		for idx, child in ipairs(children) do
+			local name = child:GetName()
+			if name and name:match("ClassTrainerSkillIcon") then
+				print("  [" .. idx .. "] " .. name)
+				print("    :GetID() = " .. tostring(child:GetID()))
+				print("    :IsShown() = " .. tostring(child:IsShown()))
+
+				-- Check all regions (textures)
+				local regions = {child:GetRegions()}
+				print("    Number of regions: " .. #regions)
+				for regIdx, region in ipairs(regions) do
+					if region:GetObjectType() == "Texture" then
+						local texture = region:GetTexture()
+						local drawLayer = region:GetDrawLayer()
+						print("      [" .. regIdx .. "] Texture: " .. tostring(texture) .. " (layer: " .. tostring(drawLayer) .. ")")
+					end
+				end
+
+				-- Check for common border properties
+				if child.icon then
+					print("    child.icon exists")
+				end
+				if child.border then
+					print("    child.border exists")
+				end
+				if child.NormalTexture then
+					print("    child.NormalTexture exists")
+				end
+				if child.customBorder then
+					print("    child.customBorder exists (from cfItemColors)")
+					print("      :IsShown() = " .. tostring(child.customBorder:IsShown()))
+					print("      :GetAlpha() = " .. tostring(child.customBorder:GetAlpha()))
+				end
+			end
+		end
+	else
+		print("  ClassTrainerDetailScrollChildFrame not found")
+	end
+
+	-- Test 7: Check for selection index API
+	print("\n|cff00ffff--- Selection APIs ---|r")
+	local selectionAPIs = {
+		"GetTrainerSelectionIndex",
+		"GetSelectedTrainerService",
+		"GetTrainerServiceSelection",
+	}
+
+	for _, apiName in ipairs(selectionAPIs) do
+		if _G[apiName] then
+			local result = _G[apiName]()
+			print("  " .. apiName .. "(): " .. tostring(result))
+		else
+			print("  " .. apiName .. ": does not exist")
+		end
+	end
+
+	-- Test 8: Tooltip scanning for selected service (Working Method)
+	print("\n|cff00ffff--- Tooltip Scan for Selected Service ---|r")
+	local selectedIndex = GetTrainerSelectionIndex()
+	if selectedIndex and selectedIndex > 0 then
+		print("  Selected service index: " .. selectedIndex)
+
+		-- Create a fresh tooltip (must be fresh to avoid caching issues)
+		local scanTooltip = CreateFrame("GameTooltip", "ClassTrainerScanTooltip_"..selectedIndex, nil, "GameTooltipTemplate")
+		scanTooltip:SetOwner(WorldFrame, "ANCHOR_NONE")
+
+		if scanTooltip.SetTrainerService then
+			scanTooltip:SetTrainerService(selectedIndex)
+
+			-- Use GetItem() to extract item link directly from tooltip
+			local _, itemLink = scanTooltip:GetItem()
+
+			if itemLink then
+				print("  |cff00ff00SUCCESS:|r tooltip:GetItem() returned: " .. itemLink)
+
+				-- Get quality from link
+				local _, _, quality = GetItemInfo(itemLink)
+				if quality then
+					local qualityColor = ITEM_QUALITY_COLORS[quality]
+					local colorHex = string.format("|cff%02x%02x%02x", qualityColor.r * 255, qualityColor.g * 255, qualityColor.b * 255)
+					print("  Item quality: " .. colorHex .. quality .. " (" .. _G["ITEM_QUALITY"..quality.."_DESC"] .. ")|r")
+				end
+			else
+				print("  |cffff6600WARNING:|r tooltip:GetItem() returned nil (service may not create an item)")
+			end
+		else
+			print("  |cffff0000ERROR:|r SetTrainerService not available on tooltip")
+		end
+	else
+		print("  |cffff6600No service selected|r")
+	end
+
+	print("\n|cff00ff00=== TEST COMPLETE ===|r")
+	print("|cffffaa00Try clicking on different trainer services and run /testct again|r")
+end
+
+-- Slash command for ClassTrainer API test
+SLASH_TESTCLASSTRAINER1 = "/testclasstrainer"
+SLASH_TESTCLASSTRAINER2 = "/testct"
+SlashCmdList["TESTCLASSTRAINER"] = testClassTrainerAPIs
