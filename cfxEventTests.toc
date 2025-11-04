@@ -1,5 +1,5 @@
 ## Interface: 11508
-## Title:     cfEventTests
+## Title:     cfxEventTest
 ## Notes:     Event testing for cfItemColors
 ## Author:    Cowfoot
 ## Version:   1.0
